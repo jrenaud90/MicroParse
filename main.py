@@ -12,28 +12,42 @@ def CurrentUTC():
     x = datetime.datetime.utcnow()
     return x
 def UTC2str(UTC):
-    y=UTC.year
-    m=UTC.month
-    d=UTC.day
-    hr=UTC.hour
-    mn=UTC.minute
-    sec=UTC.second
-    Full = str(y) +  str(m)  + str(d) + '-' + str(hr) + str(mn) + str(sec)
+    y=str(UTC.year)
+    if UTC.month <10:
+        m = '0' + str(UTC.month)
+    else:
+        m = str(UTC.month)
+    if UTC.day <10:
+        d = '0' + str(UTC.day)
+    else: 
+        d = str(UTC.day)
+    if UTC.hour <10:
+        hr = '0' + str(UTC.hour)
+    else:
+        hr = str(UTC.hour)
+    if UTC.minute <10:
+        mn = '0' + str(UTC.minute)
+    else:
+        mn = str(UTC.minute)
+    if UTC.second <10:
+        sc = '0' + str(UTC.second)
+    else:
+        sc = str(UTC.second)
+    Full = y+m+d+'-'+hr+mn+sc
     return Full
 class MyHTMLParser(HTMLParser):
-    def handle_data(self, data):
-        if len(data) > 1:
-            htmldata.write('::DATA: ' + data + '\n')
+   # def handle_data(self, data):
+        #if len(data) > 1:
+            #htmldata.write('::DATA: ' + data + '\n')
     def handle_starttag(self, tag, attrs):
-        htmldata.write('Item: \n')
-        htmldata.write('::TAG: ' + tag + '\n')
-        for attr in attrs:
-            if len(attr)<2:
-                htmldata.write('\t' + attr + '\n')
-            else:
-                st1 = attr[0]
-                st2 = attr[1]
-                htmldata.write('\t' + st1 + ' = ' + st2 + '\n')
+        if tag == 'td':
+            for attr in attrs:
+                if len(attr)<2:
+                    htmldata.write(attr + '\n')
+                else:
+                    st1 = attr[0]
+                    st2 = attr[1]
+                    htmldata.write(st1 + ' = ' + st2 + '\n')
 def DownloadHTMLtext(html,log):
         HtmlData = urllib2.urlopen(html)
         log.write('HTML Data Downloaded\n')
