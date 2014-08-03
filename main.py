@@ -7,7 +7,7 @@ Ver 0.1.6
 
 from HTMLParser import HTMLParser
 import os,urllib2,datetime
-vers = '0.1.6'
+vers = '0.2.1'
 def LogMaker(CurrentPath):
     logpath = CurrentPath + 'Output.log'
     log = open(logpath,'w')
@@ -61,21 +61,18 @@ def csvsaver(data,csv,log):
     csv.write('Active,Field,StarNo,RA(J2000),DEC(J2000),T_MAX(HJD),T_MAX(UT),tau,U_min,A_MAX,D_mag,f_bl,I_bl,I_o\n')
     log.write('CSVfile made and header wrote\n')
     lines=data.readlines()
-    print lines
-    for i, line in enumerate(data):
-        print str(i) + line
+    for i, line in enumerate(lines):
         if line == ' ----NEW EVENT----\n':
-            log.write(str(i)+'-'+line+'\n')
             if lines[i+1] == '\n':
                 log.write('bad sector found, skipped \n')
             else:
                 if lines[i+1]=='LIVE!----------------\n':
-                    active = '1,';
+                    active = '1';
                     skip = 1;
                 else:
-                    active = '0,';
+                    active = '0';
                     skip = 0;
-                field = lines[i+1+skip]
+                url = lines[i+1+skip]
                 starno = lines[i+2+skip]
                 RA = lines[i+3+skip]
                 DEC = lines[i+4+skip]
@@ -87,8 +84,8 @@ def csvsaver(data,csv,log):
                 dmag = lines[i+10+skip]
                 fbl = lines[i+11+skip]
                 ibl = lines[i+12+skip]
-                io = lines[i+5+skip]
-                stringg = active +','+ field[0:-1] +','+ starno[0:-1]+','+RA[0:-1]+','+DEC[0:-1]+','+tmaxhj[0:-1]+','+tmaxut[0:-1]+','+tau[0:-1]+','+umin[0:-1]+','+amax[0:-1]+','+dmag[0:-1]+','+fbl[0:-1]+','+ibl[0:-1]+','+io[0:-1]+'\n'
+                io = lines[i+13+skip]
+                stringg = active +','+ 'http://ogle.astrouw.edu.pl/ogle4/ews/'+url[0:-1] +','+ starno[0:-1]+','+RA[0:-1]+','+DEC[0:-1]+','+tmaxhj[0:-1]+','+tmaxut[0:-1]+','+tau[0:-1]+','+umin[0:-1]+','+amax[0:-1]+','+dmag[0:-1]+','+fbl[0:-1]+','+ibl[0:-1]+','+io[0:-1]+'\n'
                 csv.write(stringg)
                 
             
