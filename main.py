@@ -5,8 +5,8 @@ Created on Mon Jul 28 21:08:13 2014
 """
 
 from HTMLParser import HTMLParser
-import os,urllib2,datetime,sidereal
-vers = '0.3.1'
+import os,urllib2,datetime
+vers = '0.3.2n'
 def LogMaker(CurrentPath):
     logpath = CurrentPath + 'Output.log'
     log = open(logpath,'w')
@@ -45,11 +45,12 @@ def OnlyParse(Path,log):
             pass
         pass
     with open(Path + 'ParseOutput.tmp','r') as datastore:
-        inputintoobject(datastore,csvform,log)
+        events = inputintoobject(datastore,csvform,log)
         pass
 def inputintoobject(data,log):
     log.write('CSVfile made and header wrote\n')
     lines=data.readlines()
+	events = []
     for i, line in enumerate(lines):
         if line == ' ----NEW EVENT----\n':
             if lines[i+1] == '\n':
@@ -74,7 +75,8 @@ def inputintoobject(data,log):
                 fbl = lines[i+11+skip]
                 ibl = lines[i+12+skip]
                 io = lines[i+13+skip]
-                event = microevent(active,url,starno,RA,DEC,tmaxj,tmaxut,tau,umin,amax,dmag,fbl,ibl,io)
+                events.append(microevent(active,url,starno,RA,DEC,tmaxj,tmaxut,tau,umin,amax,dmag,fbl,ibl,io))
+	return events
 				
 def ParseDataFile(htmldata,datastore,log,Path):
     nextline = 0
@@ -170,24 +172,25 @@ def DownloadHTMLtext(html,log,CurrentPath):
         return kstr
 class microevent:
 	import os.path
-	version = '0.1.5'
-	versionDate = '8-9-2014'
+	from sidereal import *
+	self.version = '0.1.7x'
+	self.versionDate = '8-9-2014'
 	def __init__(self,a,u,f,s,r,d,tmj,tmu,umn,tu,am,dma,fbl,ibl,io):
-		active = a
-		html = u
-		field = f
-		starno = s
-		ra = r
-		dec = d
-		t_max_hjd = tmj
-		t_max_ut = tmu
-		u_min = umn
-		tau = tu
-		a_max = am
-		d_mag = dma
-		f_bl = fbl
-		i_bl = ibl
-		i_o = io
+		self.active = a
+		self.html = u
+		self.field = f
+		self.starno = s
+		self.ra = r
+		self.dec = d
+		self.t_max_hjd = tmj
+		self.t_max_ut = tmu
+		self.u_min = umn
+		self.tau = tu
+		self.a_max = am
+		self.d_mag = dma
+		self.f_bl = fbl
+		self.i_bl = ibl
+		self.i_o = io
 	def changeValue(self,string,value)
 		%Possible Input Strings:
 		%	==active,html,field,starno,ra,dec,t_max_hjd,t_max_ut,tau,a_max,d_mag,f_bl,i_bl,i_o
@@ -224,13 +227,17 @@ class microevent:
 		else:
 			print 'Invalid string'
 	def parseVisibility(self,long,lat,UTC)
+		longrad = sidereal.parseLon(long)
+		latrad = sidereal.parseLat(lat)
+		hourAngle = sidereal.raToHourAngle(self.ra, UTC, longrad)
+		%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%WORK NEEDS DONE
 		%if condition:
 			Visibility = 1
 		%else:
 		%Visibility = 0
 		return Visibility
 	def parseMinimumMag(self,MinMag)
-		if self.i_o+self.d_mag > MinMag:
+		if float(self.i_o)+float(self.d_mag) > MinMag:
 			MinMagTest = 0
 		else:
 			MinMagTest = 1
