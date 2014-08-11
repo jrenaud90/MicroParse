@@ -7,7 +7,7 @@ Created on Mon Jul 28 21:08:13 2014
 from HTMLParser import HTMLParser
 from numpy import sin,arcsin,cos,pi,arccos
 import os,urllib2,datetime
-vers = '0.9.1p'
+vers = '0.9.2p'
 ####Main Files####
 #==============================================================================
 # Run MainGrab() if you want to run the parser from scratch, downloading new 
@@ -52,7 +52,7 @@ def OnlyParse(Path,log):
     MinMag = income[4]
     minALT = income[5]
     OnlyActive = income[6]
-    compactPrintout = 'y'
+    compactPrintout = 'n'
     log.write('Previous Log file found\n')
     log.write('OnlyParse function is now running...\n')
     global htmldata
@@ -72,18 +72,18 @@ def OnlyParse(Path,log):
     log.write('Running through events and times\n')
     log.write('events: ' + str(len(events))+'\n')
     log.write('times: ' + str(len(times))+'\n')
-    timerr = len(events)
+    timerr = len(times)
     print '25% Complete'
     dt = float(float((100-25))/timerr)
     perc = float(25)
     pold = 25
-    for event in events:
+    for time in times:
         perc = perc + dt
         pnew = int(perc)
         if pnew != pold:
             print str(pnew) + '% Complete'
             pold = pnew
-        for time in times:
+        for event in events:
             data = event.parse(ObservLong,ObservLat,time,MinMag,minALT,OnlyActive)
             if data[0]:
                 event.print2CSV(compactPrintout,Path,time,data[1],data[2])
@@ -108,7 +108,7 @@ def queryUser():
         prec = 60 #minutes, I would keep this between 30 - 240
         lonng = -77.305325 #degrees East
         lat = 38.828176 #degrees North
-        days = 30
+        days = 60
         MinMag = 17 #Minimum Magnitude to detect
         minALT = 20 #Degrees above the horizon
         Act = 1 #Look for only Active Events
