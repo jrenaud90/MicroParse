@@ -10,6 +10,7 @@ vers = '0.3.9p'
 def LogMaker(CurrentPath):
     logpath = CurrentPath + 'Output.log'
     log = open(logpath,'w')
+    #
     return log
 def MainGrab():
     FolderPath = 'C:/MicroLensParse/'
