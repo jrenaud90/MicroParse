@@ -6,7 +6,7 @@ Created on Mon Jul 28 21:08:13 2014
 
 from HTMLParser import HTMLParser
 import os,urllib2,datetime
-vers = '0.3.9p'
+vers = '0.4.2n'
 def LogMaker(CurrentPath):
     logpath = CurrentPath + 'Output.log'
     log = open(logpath,'w')
@@ -35,6 +35,12 @@ def MainGrab():
     log.write('MainGrab Function Finished\n')
     OnlyParse(CurrentPath,log)
 def OnlyParse(Path,log):
+    daysOut = 30 #Days out from today to search
+    precision = 60 #minutes, I would keep this between 30 - 240
+    ObservLong = 38.8308 #degrees North
+    ObservLat = 77.3075 #degrees West
+    MinMag = 20 #Minimum Magnitude to detect
+    compactPrintout = 'y'
     log.write('Previous Log file found\n')
     log.write('OnlyParse function is now running...\n')
     global htmldata
@@ -48,10 +54,15 @@ def OnlyParse(Path,log):
     with open(Path + 'ParseOutput.tmp','r') as datastore:
         events = inputintoobject(datastore,log)
         pass
-    startday = datetime.datetime.utcnow()
+    times = dateFinder('y',daysOut,precision)
+    for event in events:
+        for time in times:
+            if event.parse(ObservLong,ObservLat,time,MinMag):
+                event.printCSV(compactPrintout,Path,time)
+        
     
 def inputintoobject(data,log):
-    log.write('CSVfile made and header wrote\n')
+    log.write('CSVfile made\n')
     lines=data.readlines()
     events = []
     for i, line in enumerate(lines):
@@ -238,21 +249,20 @@ class microevent:
 		#return Visibility
 	def parseMinimumMag(self,MinMag):
 		if float(self.i_o)+float(self.d_mag) > MinMag:
-			MinMagTest = 0
+			MinMagTest = False
 		else:
-			MinMagTest = 1
+			MinMagTest = True
 		return MinMagTest
-	def parse(self,long,lat,utc,minmag,compact,filepath,printqur):
-		parsepass = 0
-		if (minmag == 'NA' and self.parseVisibility(lonng,lat,utc) == 1):
-			parsepass = 1
-		elif (self.parseMinimumMag(minmag) == 1 and self.parseVisibility(long,lat,utc) == 1):
-			parsepass = 1
-		if printqur == 1:
-				self.printCSV(compact,filepath)
+	def parse(self,lonng,lat,utc,minmag):
+		if (minmag == 'NA' and self.parseVisibility(lonng,lat,utc)):
+			parsepass = True
+		elif (self.parseMinimumMag(minmag) and self.parseVisibility(lonng,lat,utc)):
+			parsepass = True
+          else:
+              parsepass = False
 		return parsepass
 	def printCSV(self,compact,filepath):
-		if compact == 1:
+		if compact == 'y':
 			stringout = self.active+','+self.html+','+self.ra+','+self.dec+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.d_mag+','+self.i_bl+','+self.i_o+'\n'
 		else:
 			stringout = self.active+','+self.html+','+self.field+','+self.starno+','+self.ra+','+self.dec+','+self.t_max_hjd+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.a_max+','+self.d_mag+','+self.f_bl+','+self.i_bl+','+self.i_o+'\n'
