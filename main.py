@@ -6,7 +6,7 @@ Created on Mon Jul 28 21:08:13 2014
 
 from HTMLParser import HTMLParser
 import os,urllib2,datetime
-vers = '0.4.2n'
+vers = '0.4.5n'
 def LogMaker(CurrentPath):
     logpath = CurrentPath + 'Output.log'
     log = open(logpath,'w')
@@ -53,12 +53,16 @@ def OnlyParse(Path,log):
         pass
     with open(Path + 'ParseOutput.tmp','r') as datastore:
         events = inputintoobject(datastore,log)
+        log.write('Events Found')
         pass
     times = dateFinder('y',daysOut,precision)
+    log.write('Times Found')
+    log.write('Running through events and times')
     for event in events:
         for time in times:
             if event.parse(ObservLong,ObservLat,time,MinMag):
-                event.printCSV(compactPrintout,Path,time)
+                event.print2CSV(compactPrintout,Path,time)
+    log.write('Parser Finished')
         
     
 def inputintoobject(data,log):
@@ -185,8 +189,8 @@ def DownloadHTMLtext(html,log,CurrentPath):
         log.write('HTML data passed into super-string\n')
         return kstr
 class microevent:
-	version = '0.1.8n'
-	versionDate = '8-9-2014'
+	version = '0.2.5n'
+	versionDate = '8-10-2014'
 	def __init__(self,a,u,f,s,r,d,tmj,tmu,umn,tu,am,dma,fbl,ibl,io):
 		self.active = a
 		self.html = u
@@ -246,39 +250,75 @@ class microevent:
 		#%if condition:Visibility = 1
 		#%else:
 		#%Visibility = 0
+          self.alt = 1
+          self.azmu = 1
 		#return Visibility
 	def parseMinimumMag(self,MinMag):
 		if float(self.i_o)+float(self.d_mag) > MinMag:
-			MinMagTest = False
-		else:
 			MinMagTest = True
+		else:
+			MinMagTest = False
 		return MinMagTest
 	def parse(self,lonng,lat,utc,minmag):
 		if (minmag == 'NA' and self.parseVisibility(lonng,lat,utc)):
-			parsepass = True
+              parsepass = True
 		elif (self.parseMinimumMag(minmag) and self.parseVisibility(lonng,lat,utc)):
-			parsepass = True
+              parsepass = True
           else:
               parsepass = False
 		return parsepass
-	def printCSV(self,compact,filepath):
-		if compact == 'y':
-			stringout = self.active+','+self.html+','+self.ra+','+self.dec+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.d_mag+','+self.i_bl+','+self.i_o+'\n'
-		else:
-			stringout = self.active+','+self.html+','+self.field+','+self.starno+','+self.ra+','+self.dec+','+self.t_max_hjd+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.a_max+','+self.d_mag+','+self.f_bl+','+self.i_bl+','+self.i_o+'\n'
-		if s.path.isfile(filepath+'output.csv'):
-			with open(filepath+'output.csv','a') as csv:
-				csv.write(stringout)				
-				pass
-		else:
-			with open(filepath+'output.csv','w') as csv:
-				if compact == 1:
-					csv.write('Active,HTML,RA(J2000),DEC(J2000),T_MAX(UT),tau,U_min,D_mag,f_bl,I_bl,I_o\n')
-				else:
-					csv.write('Active,HTML,Field,StarNo,RA(J2000),DEC(J2000),T_MAX(HJD),T_MAX(UT),tau,U_min,A_MAX,D_mag,f_bl,I_bl,I_o\n')
-				csv.write(stringout)
-				pass
-#Astrophysics packages
+	def print2CSV(self,compact,filepath,time):
+         if compact == 'y':
+             stringout = self.active+','+datetime2String_Num(time,'s')+','+str(self.alt)+','+str(self.azmu)+','+self.html+','+self.ra+','+self.dec+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.d_mag+','+self.i_bl+','+self.i_o+'\n'
+         else:
+             stringout = self.active+','+datetime2String_Num(time,'s')+','+str(self.alt)+','+str(self.azmu)+','+self.html+','+self.field+','+self.starno+','+self.ra+','+self.dec+','+self.t_max_hjd+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.a_max+','+self.d_mag+','+self.f_bl+','+self.i_bl+','+self.i_o+'\n'
+         if s.path.isfile(filepath+'output.csv'):
+             with open(filepath+'output.csv','a') as csv:
+                 csv.write(stringout)
+                 pass
+         else:
+             with open(filepath+'output.csv','w') as csv:
+                 if compact == 'y':
+                     csv.write('Active,Date-Time(UTC),Alt,Azmu,HTML,RA(J2000),DEC(J2000),T_MAX(UT),tau,U_min,D_mag,f_bl,I_bl,I_o\n')
+                     csv.write(stringout)
+                 else:
+                     csv.write('Active,Date-Time(UTC),Alt,Azmu,HTML,Field,StarNo,RA(J2000),DEC(J2000),T_MAX(HJD),T_MAX(UT),tau,U_min,A_MAX,D_mag,f_bl,I_bl,I_o\n')
+                     csv.write(stringout)
+			  pass
+def datetime2String_Num(time,outputType):
+    y = time.year
+    m = time.month
+    d = time.day
+    h = time.hour
+    mn = time.minute
+    s = time.second
+    if outputType == 's':
+        output = str(m)+'-'+str(d)+'-'+str(y)+' '+str(h)+':'+str(mn)+':'+str(s)
+    elif outputType == 'ymdx':
+        m = m + s/60
+        h = h + m/60
+        d = d + h/24
+        output = [y,m,d]
+    elif outputType == 'tonly':
+        output = [h,mn,s]
+    elif outputType == 'donly':
+        output = [y,m,d]
+    elif outputType == 'jd':
+        y = float(y)
+        m = float(m)
+        d = float(d)
+        mterm=int((m-14)/12)
+        aterm=int((1461*(y+4800+mterm))/4)
+        bterm=int((367*(m-2-12*mterm))/12)
+        cterm=int((3*int((y+4900+mterm)/100))/4)
+        j=aterm+bterm-cterm+d
+        j -= 32075
+        #offset to start of day
+        j -= 0.5
+        #    print "h/m/s: %f/%f/%f"%(hr,min,sec)
+        #Apply the time
+        output = j + (h + (mn + (s/60.0))/60.0)/24.0
+    return output
 def DMStoDeg(string,radQ):
     if string[2] == ':':
         pn = 'pos'
