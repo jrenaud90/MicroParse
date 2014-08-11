@@ -6,7 +6,7 @@ Created on Mon Jul 28 21:08:13 2014
 
 from HTMLParser import HTMLParser
 import os,urllib2,datetime
-vers = '0.3.6n'
+vers = '0.3.9p'
 def LogMaker(CurrentPath):
     logpath = CurrentPath + 'Output.log'
     log = open(logpath,'w')
@@ -313,7 +313,6 @@ def dateFinder(NowQ,days,precision):
                 sday = sday - 1
         shour = int(starthourUTC[0:2])
         smin = int(starthourUTC[3:len(starthourUTC)])
-        sdate = datetime.datetime(syear,smonth,sday,shour,smin)
         ehour = int(endhourUTC[0:2])
         emin = int(endhourUTC[3:len(endhourUTC)])
         thour = shour
@@ -322,50 +321,22 @@ def dateFinder(NowQ,days,precision):
         tmonth = smonth
         tyear = syear
         UTCtimes = []
-        eday = sday + days
-#        emonth = smonth
-#        eyear = eyear
-#        while eday > 31:
-#            eday = eday - daysinmonths[emonth]
-#            emonth = emonth + 1
-#            if emonth > 12:
-#                emonth = 1
-#                eyear = eyear + 1
-#        if eday > daysinmonths[emonth]:
-#            eday = eday - daysinmonths[emonth]
-#            emonth = emonth + 1
-#            if emonth > 12:
-#                emonth = 1
-#                eyear = eyear + 1
-#        if tyear <= eyear:
-#            dy = 1
-#        if tmonth != emonth:
-#            dm = 1
-        
-        while tday < eday:
+        for i in range(1,days):
             thour = shour
             tmin = smin
-            pday = tday
-            while pday > 31:
-                pday = pday - daysinmonths[tmonth]
+            if tday > daysinmonths[tmonth]:
+                tday = tday - daysinmonths[tmonth]
                 tmonth = tmonth + 1
                 if tmonth > 12:
                     tmonth = 1
                     tyear = tyear + 1
-            if pday > daysinmonths[tmonth]:
-                pday = tday - daysinmonths[tmonth]
-                tmonth = tmonth + 1
-                if tmonth > 12:
-                    tmonth = 1
-                    tyear = tyear + 1
-            while thour < ehour and tmin < emin:
+            while thour < ehour or tmin < emin:
                 UTCtimes.append(datetime.datetime(tyear,tmonth,tday,thour,tmin))
                 tmin = tmin+precision
-                if tmin >= 60:
+                while tmin > 59:
                     thour = thour + 1
                     tmin = tmin - 60
             tday = tday + 1
-            
     else:
         print 'Sorry, this feature is not yet implemented.'
     return UTCtimes
