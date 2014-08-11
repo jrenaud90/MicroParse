@@ -5,8 +5,9 @@ Created on Mon Jul 28 21:08:13 2014
 """
 
 from HTMLParser import HTMLParser
+from numpy import sin,arcsin,cos,pi
 import os,urllib2,datetime
-vers = '0.5.3n'
+vers = '0.8.3n'
 ####Main Files####
 #==============================================================================
 # Run MainGrab() if you want to run the parser from scratch, downloading new 
@@ -44,11 +45,12 @@ def MainGrab():
     OnlyParse(CurrentPath,log)
 def OnlyParse(Path,log):
     daysOut = 30 #Days out from today to search
-    precision = 60 #minutes, I would keep this between 30 - 240
+    precision = 30 #minutes, I would keep this between 30 - 240
     ObservLong = -77.305325 #degrees East
     ObservLat = 38.828176 #degrees North
     MinMag = 20 #Minimum Magnitude to detect
     minALT = 15 #Degrees above the horizon
+    OnlyActive = 0 #Look for only Active Events
     compactPrintout = 'y'
     log.write('Previous Log file found\n')
     log.write('OnlyParse function is now running...\n')
@@ -69,7 +71,7 @@ def OnlyParse(Path,log):
     log.write('Running through events and times')
     for event in events:
         for time in times:
-            data = event.parse(ObservLong,ObservLat,time,MinMag,minALT)
+            data = event.parse(ObservLong,ObservLat,time,MinMag,minALT,OnlyActive)
             if data[0]:
                 event.print2CSV(compactPrintout,Path,time,data[1],data[2])
     log.write('Parser Finished')
@@ -256,7 +258,7 @@ def dateFinder(NowQ,days,precision):
         print 'Sorry, this feature is not yet implemented.'
     return UTCtimes
 class microevent:
-	version = '0.3.0n'
+	version = '0.3.6n'
 	versionDate = '8-11-2014'
 	def __init__(self,a,u,f,s,r,d,tmj,tmu,umn,tu,am,dma,fbl,ibl,io):
 		self.active = a
@@ -317,9 +319,15 @@ class microevent:
           DEC = DECtoDeg(self.dec,'n')
           d = daysFromJ2000(UTC)
           LST = LST_finder(d,UTC,lonng)
-          HA_finder(RA,LST)
-          
-          VisibData = [IsVid,alt,azmu]
+          HA = HA_finder(RA,LST)
+          AltAz = AltAzmu_finder(RA,DEC,HA,lat)
+          alt = AltAz[0]
+          azmu = AltAz[1]
+          if alt < minALT:
+              IsVis = False
+          else:
+              IsVis = True
+          VisibData = [IsVis,alt,azmu]
           return VisibData
 		#return Visibility
 	def parseMinimumMag(self,MinMag):
@@ -328,22 +336,32 @@ class microevent:
 		else:
 			MinMagTest = False
 		return MinMagTest
-	def parse(self,lonng,lat,utc,minmag,minALT):
-         VisibData = self.parseVisibility(lonng,lat,utc,minALT)
-         if (minmag == 'NA' and VisibData[0]):
-             parsepass = True
-         elif (self.parseMinimumMag(minmag) and VisibData[0]):
-             parsepass = True
+	def parse(self,lonng,lat,utc,minmag,minALT,OnlyActive):
+         if OnlyActive == 1:
+             if int(self.active) == 1:
+                 nxt = 1
+             else:
+                 nxt = 0
          else:
-             parsepass = False
-         parsedata = [parsepass,VisibData[1],VisibData[2]]
+             nxt = 1
+         if nxt == 1:
+             VisibData = self.parseVisibility(lonng,lat,utc,minALT)
+             if (minmag == 'NA' and VisibData[0]):
+                 parsepass = True
+             elif (self.parseMinimumMag(minmag) and VisibData[0]):
+                 parsepass = True
+             else:
+                 parsepass = False
+             parsedata = [parsepass,VisibData[1],VisibData[2]]
+         else:
+             parsedata = [False,0,0]
          return parsedata
 	def print2CSV(self,compact,filepath,time,alt,azmu):
          if compact == 'y':
              stringout = self.active+','+datetime2String_Num(time,'s')+','+str(alt)+','+str(azmu)+','+self.html+','+self.ra+','+self.dec+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.d_mag+','+self.i_bl+','+self.i_o+'\n'
          else:
              stringout = self.active+','+datetime2String_Num(time,'s')+','+str(alt)+','+str(azmu)+','+self.html+','+self.field+','+self.starno+','+self.ra+','+self.dec+','+self.t_max_hjd+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.a_max+','+self.d_mag+','+self.f_bl+','+self.i_bl+','+self.i_o+'\n'
-         if s.path.isfile(filepath+'output.csv'):
+         if os.path.isfile(filepath+'output.csv'):
              with open(filepath+'output.csv','a') as csv:
                  csv.write(stringout)
                  pass
@@ -352,10 +370,11 @@ class microevent:
                  if compact == 'y':
                      csv.write('Active,Date-Time(UTC),Alt,Azmu,HTML,RA(J2000),DEC(J2000),T_MAX(UT),tau,U_min,D_mag,f_bl,I_bl,I_o\n')
                      csv.write(stringout)
+                     pass
                  else:
                      csv.write('Active,Date-Time(UTC),Alt,Azmu,HTML,Field,StarNo,RA(J2000),DEC(J2000),T_MAX(HJD),T_MAX(UT),tau,U_min,A_MAX,D_mag,f_bl,I_bl,I_o\n')
                      csv.write(stringout)
-			  pass
+                     pass
 def datetime2String_Num(time,outputType):
     y = time.year
     m = time.month
@@ -415,16 +434,9 @@ def DECtoDeg(string,radQ):
         out = D
     return out
 def RAtoHours_Deg(string,ConvrtDegQ):
-    if string[2] == ':':
-        pn = 'pos'
-        H = float(string[0:2])
-        M = float(string[3:5])
-        S = float(string[6:len(string)])
-    else:
-        pn = 'neg'
-        H = float(string[1:3])
-        M = float(string[4:6])
-        S = float(string[7:len(string)])
+    H = float(string[0:2])
+    M = float(string[3:5])
+    S = float(string[6:len(string)])
     M = M + S/60
     H = H + M/60
     if ConvrtDegQ == 'y':
