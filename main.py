@@ -6,7 +6,7 @@ Created on Mon Jul 28 21:08:13 2014
 
 from HTMLParser import HTMLParser
 import os,urllib2,datetime
-vers = '0.3.2n'
+vers = '0.3.6n'
 def LogMaker(CurrentPath):
     logpath = CurrentPath + 'Output.log'
     log = open(logpath,'w')
@@ -231,11 +231,10 @@ class microevent:
           DEC = DMStoDeg(self.dec,'n')
 		#WORK NEEDS DONE
 		#source? http://www.stargazing.net/kepler/altaz.html
-		#%if condition:
-		Visibility = 1
+		#%if condition:Visibility = 1
 		#%else:
 		#%Visibility = 0
-		return Visibility
+		#return Visibility
 	def parseMinimumMag(self,MinMag):
 		if float(self.i_o)+float(self.d_mag) > MinMag:
 			MinMagTest = 0
@@ -292,8 +291,81 @@ def DMStoDeg(string,radQ):
     return out
 def dateFinder(NowQ,days,precision):
     #days - out from now
-    #precision in increments of an hour 
+    #precision in minutes 
+    starthourUTC = '00:00'
+    endhourUTC = '09:00'
+    daysinmonths = {1:31,2:28,3:31,4:30,5:31,6:30,7:31,8:31,9:30,10:31,11:30,12:31}
+    #Note, code does not account for leap years at this stage.
     if NowQ == 'y':
         now = datetime.datetime.utcnow()
+        syear = now.year
+        smonth = now.month
+        sday = now.day
+        if now.hour >= 0 and now.hour <= 4:
+            if sday == 1:
+                if smonth == 1:
+                    syear = syear -1
+                    smonth = 12
+                else:
+                    smonth = smonth - 1
+                sday = daysinmonths[smonth]
+            else:
+                sday = sday - 1
+        shour = int(starthourUTC[0:2])
+        smin = int(starthourUTC[3:len(starthourUTC)])
+        sdate = datetime.datetime(syear,smonth,sday,shour,smin)
+        ehour = int(endhourUTC[0:2])
+        emin = int(endhourUTC[3:len(endhourUTC)])
+        thour = shour
+        tmin = smin
+        tday = sday
+        tmonth = smonth
+        tyear = syear
+        UTCtimes = []
+        eday = sday + days
+#        emonth = smonth
+#        eyear = eyear
+#        while eday > 31:
+#            eday = eday - daysinmonths[emonth]
+#            emonth = emonth + 1
+#            if emonth > 12:
+#                emonth = 1
+#                eyear = eyear + 1
+#        if eday > daysinmonths[emonth]:
+#            eday = eday - daysinmonths[emonth]
+#            emonth = emonth + 1
+#            if emonth > 12:
+#                emonth = 1
+#                eyear = eyear + 1
+#        if tyear <= eyear:
+#            dy = 1
+#        if tmonth != emonth:
+#            dm = 1
         
-        
+        while tday < eday:
+            thour = shour
+            tmin = smin
+            pday = tday
+            while pday > 31:
+                pday = pday - daysinmonths[tmonth]
+                tmonth = tmonth + 1
+                if tmonth > 12:
+                    tmonth = 1
+                    tyear = tyear + 1
+            if pday > daysinmonths[tmonth]:
+                pday = tday - daysinmonths[tmonth]
+                tmonth = tmonth + 1
+                if tmonth > 12:
+                    tmonth = 1
+                    tyear = tyear + 1
+            while thour < ehour and tmin < emin:
+                UTCtimes.append(datetime.datetime(tyear,tmonth,tday,thour,tmin))
+                tmin = tmin+precision
+                if tmin >= 60:
+                    thour = thour + 1
+                    tmin = tmin - 60
+            tday = tday + 1
+            
+    else:
+        print 'Sorry, this feature is not yet implemented.'
+    return UTCtimes
