@@ -45,12 +45,14 @@ def OnlyParse(Path,log):
             pass
         pass
     with open(Path + 'ParseOutput.tmp','r') as datastore:
-        events = inputintoobject(datastore,csvform,log)
+        events = inputintoobject(datastore,log)
         pass
+    startday = datetime.datetime.utcnow()
+    
 def inputintoobject(data,log):
     log.write('CSVfile made and header wrote\n')
     lines=data.readlines()
-	events = []
+    events = []
     for i, line in enumerate(lines):
         if line == ' ----NEW EVENT----\n':
             if lines[i+1] == '\n':
@@ -75,7 +77,7 @@ def inputintoobject(data,log):
                 fbl = lines[i+11+skip]
                 ibl = lines[i+12+skip]
                 io = lines[i+13+skip]
-                events.append(microevent(active,url,starno,RA,DEC,tmaxj,tmaxut,tau,umin,amax,dmag,fbl,ibl,io))
+                events.append(microevent(active,url,starno,RA,DEC,tmaxhj,tmaxut,tau,umin,amax,dmag,fbl,ibl,io))
 	return events
 				
 def ParseDataFile(htmldata,datastore,log,Path):
@@ -171,10 +173,8 @@ def DownloadHTMLtext(html,log,CurrentPath):
         log.write('HTML data passed into super-string\n')
         return kstr
 class microevent:
-	import os.path
-	from sidereal import *
-	self.version = '0.1.7x'
-	self.versionDate = '8-9-2014'
+	version = '0.1.8n'
+	versionDate = '8-9-2014'
 	def __init__(self,a,u,f,s,r,d,tmj,tmu,umn,tu,am,dma,fbl,ibl,io):
 		self.active = a
 		self.html = u
@@ -191,9 +191,9 @@ class microevent:
 		self.f_bl = fbl
 		self.i_bl = ibl
 		self.i_o = io
-	def changeValue(self,string,value)
-		%Possible Input Strings:
-		%	==active,html,field,starno,ra,dec,t_max_hjd,t_max_ut,tau,a_max,d_mag,f_bl,i_bl,i_o
+	def changeValue(self,string,value):
+		#Possible Input Strings:
+		#	==active,html,field,starno,ra,dec,t_max_hjd,t_max_ut,tau,a_max,d_mag,f_bl,i_bl,i_o
 		if string == 'active':
 			self.active = value
 		elif string == 'html':
@@ -226,25 +226,25 @@ class microevent:
 			self.u_min = value
 		else:
 			print 'Invalid string'
-	def parseVisibility(self,long,lat,UTC)
-		longrad = sidereal.parseLon(long)
-		latrad = sidereal.parseLat(lat)
-		hourAngle = sidereal.raToHourAngle(self.ra, UTC, longrad)
-		%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%WORK NEEDS DONE
-		%if condition:
-			Visibility = 1
-		%else:
-		%Visibility = 0
+	def parseVisibility(self,lonng,lat,UTC):
+          RA = DMStoDeg(self.ra,'n')
+          DEC = DMStoDeg(self.dec,'n')
+		#WORK NEEDS DONE
+		#source? http://www.stargazing.net/kepler/altaz.html
+		#%if condition:
+		Visibility = 1
+		#%else:
+		#%Visibility = 0
 		return Visibility
-	def parseMinimumMag(self,MinMag)
+	def parseMinimumMag(self,MinMag):
 		if float(self.i_o)+float(self.d_mag) > MinMag:
 			MinMagTest = 0
 		else:
 			MinMagTest = 1
 		return MinMagTest
-	def parse(self,long,lat,utc,minmag,compact,filepath,printqur)
+	def parse(self,long,lat,utc,minmag,compact,filepath,printqur):
 		parsepass = 0
-		if (minmag == 'NA' and self.parseVisibility(long,lat,utc) == 1):
+		if (minmag == 'NA' and self.parseVisibility(lonng,lat,utc) == 1):
 			parsepass = 1
 		elif (self.parseMinimumMag(minmag) == 1 and self.parseVisibility(long,lat,utc) == 1):
 			parsepass = 1
@@ -268,3 +268,32 @@ class microevent:
 					csv.write('Active,HTML,Field,StarNo,RA(J2000),DEC(J2000),T_MAX(HJD),T_MAX(UT),tau,U_min,A_MAX,D_mag,f_bl,I_bl,I_o\n')
 				csv.write(stringout)
 				pass
+#Astrophysics packages
+def DMStoDeg(string,radQ):
+    if string[2] == ':':
+        pn = 'pos'
+        D = float(string[0:2])
+        M = float(string[3:5])
+        S = float(string[6:len(string)])
+    else:
+        pn = 'neg'
+        D = float(string[1:3])
+        M = float(string[4:6])
+        S = float(string[7:len(string)])
+    S = S/60
+    M = M/60 + S
+    D = D + M
+    if pn == 'neg':
+        D = 360-D
+    if radQ =='y':
+        out = D*(pi/180)
+    else:
+        out = D
+    return out
+def dateFinder(NowQ,days,precision):
+    #days - out from now
+    #precision in increments of an hour 
+    if NowQ == 'y':
+        now = datetime.datetime.utcnow()
+        
+        
