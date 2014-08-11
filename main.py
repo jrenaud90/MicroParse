@@ -5,9 +5,9 @@ Created on Mon Jul 28 21:08:13 2014
 """
 
 from HTMLParser import HTMLParser
-from numpy import sin,arcsin,cos,pi
+from numpy import sin,arcsin,cos,pi,arccos
 import os,urllib2,datetime
-vers = '0.8.3n'
+vers = '0.9.1p'
 ####Main Files####
 #==============================================================================
 # Run MainGrab() if you want to run the parser from scratch, downloading new 
@@ -44,13 +44,14 @@ def MainGrab():
     log.write('MainGrab Function Finished\n')
     OnlyParse(CurrentPath,log)
 def OnlyParse(Path,log):
-    daysOut = 30 #Days out from today to search
-    precision = 30 #minutes, I would keep this between 30 - 240
-    ObservLong = -77.305325 #degrees East
-    ObservLat = 38.828176 #degrees North
-    MinMag = 20 #Minimum Magnitude to detect
-    minALT = 15 #Degrees above the horizon
-    OnlyActive = 0 #Look for only Active Events
+    income = queryUser()
+    precision = income[0]
+    ObservLong = income[1]
+    ObservLat = income[2]
+    daysOut = income[3]
+    MinMag = income[4]
+    minALT = income[5]
+    OnlyActive = income[6]
     compactPrintout = 'y'
     log.write('Previous Log file found\n')
     log.write('OnlyParse function is now running...\n')
@@ -64,18 +65,54 @@ def OnlyParse(Path,log):
         pass
     with open(Path + 'ParseOutput.tmp','r') as datastore:
         events = inputintoobject(datastore,log)
-        log.write('Events Found')
+        log.write('Events Found\n')
         pass
     times = dateFinder('y',daysOut,precision)
-    log.write('Times Found')
-    log.write('Running through events and times')
+    log.write('Times Found\n')
+    log.write('Running through events and times\n')
+    log.write('events: ' + str(len(events))+'\n')
+    log.write('times: ' + str(len(times))+'\n')
+    timerr = len(events)
+    print '25% Complete'
+    dt = float(float((100-25))/timerr)
+    perc = float(25)
+    pold = 25
     for event in events:
+        perc = perc + dt
+        pnew = int(perc)
+        if pnew != pold:
+            print str(pnew) + '% Complete'
+            pold = pnew
         for time in times:
             data = event.parse(ObservLong,ObservLat,time,MinMag,minALT,OnlyActive)
             if data[0]:
                 event.print2CSV(compactPrintout,Path,time,data[1],data[2])
-    log.write('Parser Finished')
-    
+    log.write('Parser Finished\n')
+    print '100% Complete'
+def queryUser():
+    d1 = raw_input('Do you want to use Default variables (y/n)? ')
+    if d1 == 'n':
+        lonng = input('Observatory Longitude (def:-77.305325): ')
+        lat = input('Observatory Latitude (def:38.828176): ')
+        days = input('How many days from now do you want to parse to (def:30): ')
+        prec = input('How many times a night do you want to check (def:9): ')
+        prec = (9*60)/prec
+        minALT = input('What is the lowest altitude you can observe at (def:20degrees): ')
+        MinMag = input('What is the minimum magnitude you can observe (def:17): ')
+        OnlyActive = raw_input('Only Active Events?(def:y): ')
+        if OnlyActive == 'y':
+            Act = 1
+        else:
+            Act = 0
+    else:
+        prec = 60 #minutes, I would keep this between 30 - 240
+        lonng = -77.305325 #degrees East
+        lat = 38.828176 #degrees North
+        days = 30
+        MinMag = 17 #Minimum Magnitude to detect
+        minALT = 20 #Degrees above the horizon
+        Act = 1 #Look for only Active Events
+    return prec,lonng,lat,days,MinMag,minALT,Act
 #######Back Ground Files#######
     
 def LogMaker(CurrentPath):
@@ -90,7 +127,7 @@ def inputintoobject(data,log):
     for i, line in enumerate(lines):
         if line == ' ----NEW EVENT----\n':
             if lines[i+1] == '\n':
-                log.write('bad sector found, skipped \n')
+                log.write('bad sector found, skipped. \n')
             else:
                 if lines[i+1]=='LIVE!----------------\n':
                     active = '1';
@@ -99,20 +136,34 @@ def inputintoobject(data,log):
                     active = '0';
                     skip = 0;
                 url = lines[i+1+skip]
+                url = url[0:-1]
                 starno = lines[i+2+skip]
+                starno = starno[0:-1]
                 RA = lines[i+3+skip]
+                RA = RA[0:-1]
                 DEC = lines[i+4+skip]
+                DEC = DEC[0:-1]
                 tmaxhj = lines[i+5+skip]
-                tmaxut = lines[i+6+skip] 
+                tmaxhj = tmaxhj[0:-1]
+                tmaxut = lines[i+6+skip]
+                tmaxut = tmaxut[0:-1]
                 tau = lines[i+7+skip]
+                tau = tau[0:-1]
                 umin = lines[i+8+skip]
+                umin = umin[0:-1]
                 amax = lines[i+9+skip]
+                amax = amax[0:-1]
                 dmag = lines[i+10+skip]
+                dmag = dmag[0:-1]
                 fbl = lines[i+11+skip]
+                fbl = fbl[0:-1]
                 ibl = lines[i+12+skip]
+                ibl = ibl[0:-1]
                 io = lines[i+13+skip]
+                io = io[0:-1]
+                url = 'http://ogle.astrouw.edu.pl/ogle4/ews/'+url
                 events.append(microevent(active,url,starno,RA,DEC,tmaxhj,tmaxut,tau,umin,amax,dmag,fbl,ibl,io))
-	return events
+    return events
 				
 def ParseDataFile(htmldata,datastore,log,Path):
     nextline = 0
@@ -258,12 +309,11 @@ def dateFinder(NowQ,days,precision):
         print 'Sorry, this feature is not yet implemented.'
     return UTCtimes
 class microevent:
-	version = '0.3.6n'
+	version = '0.4.1p'
 	versionDate = '8-11-2014'
-	def __init__(self,a,u,f,s,r,d,tmj,tmu,umn,tu,am,dma,fbl,ibl,io):
+	def __init__(self,a,u,s,r,d,tmj,tmu,tu,umn,am,dma,fbl,ibl,io):
 		self.active = a
 		self.html = u
-		self.field = f
 		self.starno = s
 		self.ra = r
 		self.dec = d
@@ -331,7 +381,7 @@ class microevent:
           return VisibData
 		#return Visibility
 	def parseMinimumMag(self,MinMag):
-		if float(self.i_o)+float(self.d_mag) > MinMag:
+		if float(self.i_o)-float(self.d_mag) < MinMag:
 			MinMagTest = True
 		else:
 			MinMagTest = False
@@ -360,7 +410,7 @@ class microevent:
          if compact == 'y':
              stringout = self.active+','+datetime2String_Num(time,'s')+','+str(alt)+','+str(azmu)+','+self.html+','+self.ra+','+self.dec+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.d_mag+','+self.i_bl+','+self.i_o+'\n'
          else:
-             stringout = self.active+','+datetime2String_Num(time,'s')+','+str(alt)+','+str(azmu)+','+self.html+','+self.field+','+self.starno+','+self.ra+','+self.dec+','+self.t_max_hjd+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.a_max+','+self.d_mag+','+self.f_bl+','+self.i_bl+','+self.i_o+'\n'
+             stringout = self.active+','+datetime2String_Num(time,'s')+','+str(alt)+','+str(azmu)+','+self.html+','+self.starno+','+self.ra+','+self.dec+','+self.t_max_hjd+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.a_max+','+self.d_mag+','+self.f_bl+','+self.i_bl+','+self.i_o+'\n'
          if os.path.isfile(filepath+'output.csv'):
              with open(filepath+'output.csv','a') as csv:
                  csv.write(stringout)
@@ -372,7 +422,7 @@ class microevent:
                      csv.write(stringout)
                      pass
                  else:
-                     csv.write('Active,Date-Time(UTC),Alt,Azmu,HTML,Field,StarNo,RA(J2000),DEC(J2000),T_MAX(HJD),T_MAX(UT),tau,U_min,A_MAX,D_mag,f_bl,I_bl,I_o\n')
+                     csv.write('Active,Date-Time(UTC),Alt,Azmu,HTML,StarNo,RA(J2000),DEC(J2000),T_MAX(HJD),T_MAX(UT),tau,U_min,A_MAX,D_mag,f_bl,I_bl,I_o\n')
                      csv.write(stringout)
                      pass
 def datetime2String_Num(time,outputType):
@@ -513,7 +563,7 @@ def AltAzmu_finder(RA,DEC,HA,LAT):
     tmp1 = sin(DEC)*sin(LAT)+cos(DEC)*cos(LAT)*cos(HA)
     Alt = arcsin(tmp1)
     tmp2 = (sin(DEC)-sin(Alt)*sin(LAT))/(cos(Alt)*cos(LAT))
-    A = arccost(tmp2)
+    A = arccos(tmp2)
     #Now lets convert back to degrees the new values:
     Alt = Alt*(180/pi)
     A = A*(180/pi)
@@ -523,3 +573,25 @@ def AltAzmu_finder(RA,DEC,HA,LAT):
         Azmu = 360 - A
     Data = [Alt,Azmu]
     return Data
+def outputCSV2GoogleCSV(Path,compact):
+    ##Not working atm
+    with open(Path+'output.csv','rb') as inputcsvH:
+        with open(Path+'outputUpload.csv','w') as outputcsvH:
+            with deleteContent(outputcsvH) as outputcsv:
+                outputcsv.write('Subject, Start Date, Start Time, End Date, End Time, All Day Event, Description, Location, Private\n')
+                inputcsv = csv.reader(inputcsvH, delimiter=',', quotechar='|')
+                for row in inputcsv:
+                    if testrow(row,now,mindeg,toolate,tooearly,TimePre,TimePost):
+                        [btrandate,btrantime] = jd2gd(float(row[6])-TimePre*60*0.000011574)
+                        [etrandate,etrantime] = jd2gd(float(row[14])+TimePost*60*0.000011574)
+                        [mtrandate,mtrantime] = jd2gd(float(row[10]))
+                        Desc1 = '\"'+row[1] + '; Prediction URL: \'' + row[0] + '\'; Begin-Transit: ' + row[4] + row[5]+',' + row[6] + '; '
+                        Desc2 = 'End-Transit: ' + row[12] + row[13]+',' + row[14] + '; '
+                        Desc3 = 'Location: RA=' + row[19] + ', DE=' + row[20] + '; '
+                        Desc4 = 'D: ' + row[15] + '; V: ' + row[16] + '; Depth(Mag): ' + row[17] + '\"'
+                        Desc = Desc1 + Desc2 + Desc3 + Desc4
+                        line = row[1]+' (mag=' + row[17] + '),'+btrandate+','+btrantime+','+etrandate+','+etrantime+',False,'+Desc+',GMUObservatory,'+'False'
+                        outputcsv.write(line + '\n')
+                pass
+            pass
+        pass
