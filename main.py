@@ -6,7 +6,7 @@ Created on Mon Jul 28 21:08:13 2014
 
 from HTMLParser import HTMLParser
 import os,urllib2,datetime
-vers = '0.4.8n'
+vers = '0.5.3n'
 ####Main Files####
 #==============================================================================
 # Run MainGrab() if you want to run the parser from scratch, downloading new 
@@ -69,8 +69,9 @@ def OnlyParse(Path,log):
     log.write('Running through events and times')
     for event in events:
         for time in times:
-            if event.parse(ObservLong,ObservLat,time,MinMag,minALT):
-                event.print2CSV(compactPrintout,Path,time)
+            data = event.parse(ObservLong,ObservLat,time,MinMag,minALT)
+            if data[0]:
+                event.print2CSV(compactPrintout,Path,time,data[1],data[2])
     log.write('Parser Finished')
     
 #######Back Ground Files#######
@@ -255,8 +256,8 @@ def dateFinder(NowQ,days,precision):
         print 'Sorry, this feature is not yet implemented.'
     return UTCtimes
 class microevent:
-	version = '0.2.7n'
-	versionDate = '8-10-2014'
+	version = '0.3.0n'
+	versionDate = '8-11-2014'
 	def __init__(self,a,u,f,s,r,d,tmj,tmu,umn,tu,am,dma,fbl,ibl,io):
 		self.active = a
 		self.html = u
@@ -309,17 +310,17 @@ class microevent:
 		else:
 			print 'Invalid string'
 	def parseVisibility(self,lonng,lat,UTC,minALT):
+          #Methods based upon the great website: 
+          # http://www.stargazing.net/kepler/altaz.html accesed 8/2014
+          # Please cite the above in any publications
           RA = RAtoHours_Deg(self.ra,'y')
           DEC = DECtoDeg(self.dec,'n')
-          time = datetime2String_Num(UTC,'hx')
-          LST = LST_finder(daysFromJ2000(UTC),time,lonng):
-		#WORK NEEDS DONE
-		#source? http://www.stargazing.net/kepler/altaz.html
-		#%if condition:Visibility = 1
-		#%else:
-		#%Visibility = 0
-          self.alt = 1
-          self.azmu = 1
+          d = daysFromJ2000(UTC)
+          LST = LST_finder(d,UTC,lonng)
+          HA_finder(RA,LST)
+          
+          VisibData = [IsVid,alt,azmu]
+          return VisibData
 		#return Visibility
 	def parseMinimumMag(self,MinMag):
 		if float(self.i_o)+float(self.d_mag) > MinMag:
@@ -328,18 +329,20 @@ class microevent:
 			MinMagTest = False
 		return MinMagTest
 	def parse(self,lonng,lat,utc,minmag,minALT):
-         if (minmag == 'NA' and self.parseVisibility(lonng,lat,utc,minALT)):
+         VisibData = self.parseVisibility(lonng,lat,utc,minALT)
+         if (minmag == 'NA' and VisibData[0]):
              parsepass = True
-         elif (self.parseMinimumMag(minmag) and self.parseVisibility(lonng,lat,utc)):
+         elif (self.parseMinimumMag(minmag) and VisibData[0]):
              parsepass = True
          else:
              parsepass = False
-         return parsepass
-	def print2CSV(self,compact,filepath,time):
+         parsedata = [parsepass,VisibData[1],VisibData[2]]
+         return parsedata
+	def print2CSV(self,compact,filepath,time,alt,azmu):
          if compact == 'y':
-             stringout = self.active+','+datetime2String_Num(time,'s')+','+str(self.alt)+','+str(self.azmu)+','+self.html+','+self.ra+','+self.dec+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.d_mag+','+self.i_bl+','+self.i_o+'\n'
+             stringout = self.active+','+datetime2String_Num(time,'s')+','+str(alt)+','+str(azmu)+','+self.html+','+self.ra+','+self.dec+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.d_mag+','+self.i_bl+','+self.i_o+'\n'
          else:
-             stringout = self.active+','+datetime2String_Num(time,'s')+','+str(self.alt)+','+str(self.azmu)+','+self.html+','+self.field+','+self.starno+','+self.ra+','+self.dec+','+self.t_max_hjd+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.a_max+','+self.d_mag+','+self.f_bl+','+self.i_bl+','+self.i_o+'\n'
+             stringout = self.active+','+datetime2String_Num(time,'s')+','+str(alt)+','+str(azmu)+','+self.html+','+self.field+','+self.starno+','+self.ra+','+self.dec+','+self.t_max_hjd+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.a_max+','+self.d_mag+','+self.f_bl+','+self.i_bl+','+self.i_o+'\n'
          if s.path.isfile(filepath+'output.csv'):
              with open(filepath+'output.csv','a') as csv:
                  csv.write(stringout)
@@ -363,9 +366,9 @@ def datetime2String_Num(time,outputType):
     if outputType == 's':
         output = str(m)+'-'+str(d)+'-'+str(y)+' '+str(h)+':'+str(mn)+':'+str(s)
     elif outputType == 'ymdx':
-        m = m + s/60
-        h = h + m/60
-        d = d + h/24
+        mn = float(mn + s/60)
+        h = float(h + m/60)
+        d = float(d + h/24)
         output = [y,m,d]
     elif outputType == 'hx':
         m = m + s/60
@@ -431,8 +434,24 @@ def RAtoHours_Deg(string,ConvrtDegQ):
     return out
 def daysFromJ2000(UTC):
     #input is a datetime object in UTC
-    
-    
+    #J2000 is defined as 1200 hrs UT on Jan 1st 2000 AD
+    ##Days to beginning of year
+    DaystoYear = {1998:-731.5,1999:-366.5,2000:-1.5,2001:364.5,2002:729.5,2003:1094.5,\
+                  2004:1459.5,2005:1825.5,2006:2190.5,2007:2555.5,2008:2920.5,2009:3286.5,\
+                  2010:3651.5,2011:4016.5,2012:4381.5,2013:4747.5,2014:5112.5,2015:5477.5,\
+                  2016:5842.5,2017:6208.5,2018:6573.5,2019:6938.5,2020:7303.5,2021:7669.5}
+    ##Days to beginning of month:
+    DaystoMonthLY = {1:0,2:31,3:60,4:91,5:121,6:152,7:182,8:213,9:244,10:274,11:305,12:335}
+    DaystoMonthNoLY = {1:0,2:31,3:59,4:90,5:120,6:151,7:181,8:212,9:243,10:273,11:304,12:334}
+    out = datetime2String_Num(UTC,'ymdx')
+    d = out[2]
+    m = out[1]
+    y = out[0]
+    if y == 2016 or y == 2020:
+        daytomonth = DaystoMonthLY[m]
+    else:
+        daytomonth = DaystoMonthNoLY[m]
+    days = d + daytomonth + DaystoYear[y]
     return days
 def LST_finder(d,Ut,lonng):
     # Based upon the number of days from the epoch J2000
@@ -450,4 +469,45 @@ def LST_finder(d,Ut,lonng):
 # degrees. The approximation is within 0.3 seconds of time for dates within 100 
 # years of J2000.
 #==============================================================================
-
+    dcHours = datetime2String_Num(Ut,'hx')
+    lstdeg = 100.46+(0.985647*d)+lonng+(15*dcHours)
+    if lstdeg < 0:
+        while lstdeg < 0:
+            lstdeg = lstdeg + 360
+    elif lstdeg > 360:
+        while lstdeg > 360:
+            lstdeg = lstdeg - 360
+    lst = lstdeg
+    return lst
+def HA_finder(RA,LST):
+    #Both RA and LST need to be in degrees 0 - 360.
+    #Will output HA in degrees 0 - 360
+    HAtmp = LST - RA
+    if HAtmp < 0:
+        while HAtmp < 0:
+            HAtmp = HAtmp + 360
+    elif HAtmp > 360:
+        while HAtmp > 360:
+            HAtmp = HAtmp - 360
+    HA = HAtmp
+    return HA
+def AltAzmu_finder(RA,DEC,HA,LAT):
+    #RA,DEC,HA should all be in degrees. However, numpy's sin/cos defaults to 
+    #Radians so we need to convert before use.
+    RA = RA*(pi/180)
+    DEC = DEC*(pi/180)
+    HA = HA*(pi/180)
+    LAT = LAT*(pi/180)
+    tmp1 = sin(DEC)*sin(LAT)+cos(DEC)*cos(LAT)*cos(HA)
+    Alt = arcsin(tmp1)
+    tmp2 = (sin(DEC)-sin(Alt)*sin(LAT))/(cos(Alt)*cos(LAT))
+    A = arccost(tmp2)
+    #Now lets convert back to degrees the new values:
+    Alt = Alt*(180/pi)
+    A = A*(180/pi)
+    if sin(HA)<0:
+        Azmu = A
+    else:
+        Azmu = 360 - A
+    Data = [Alt,Azmu]
+    return Data
