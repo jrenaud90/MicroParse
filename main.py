@@ -1,13 +1,127 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Mon Jul 28 21:08:13 2014
-@author: jrenaud
-"""
-
 from HTMLParser import HTMLParser
 from numpy import sin,arcsin,cos,pi,arccos
 import os,urllib2,datetime
-vers = '1.0.0p'
+class MuParse():
+	def __init__(self,pathQ,website):
+		self.version = '1.2.2n'
+		self.date = '8-12-14'
+		if pathQ == 'd':
+			#Default Path
+			self.path = 'C:/MicroLensParse/'+ 'Run_' + UTC2str(CurrentUTC()) + '/'
+		else:
+			self.path = pathQ
+		if not os.path.exists(self.path):
+			os.makedirs(self.path)
+		self.log = open(self.path+'Output.log','w')
+		self.log.write('---MuParse---\nWritten by Joe Renaud at George Mason University\nVersion: '+self.version+'\tDate: '+self.date+'\n')
+		self.log.write('MuParse Constructor Called\n')
+		self.log.write('Data to be recorded at '+self.path+'\n')
+		self.website = website
+		if self.website == 'onlyparse':
+			self.website = 0
+			self.log.write('No Website will be parsed, only data will be parsed\n')
+		elif self.website == 'moa':
+			self.website = 'https://it019909.massey.ac.nz/moa/alert2014/alert.html'
+			self.log.write('MOA data to be parsed.\nWeb address to be used: '+self.website+'\n')
+		elif self.website == 'ogle':
+			self.website = 'http://ogle.astrouw.edu.pl/ogle4/ews/ews.html'
+			self.log.write('OGLE4 data to be parsed.\nWeb address to be used: '+self.website+'\n')
+	def download(self):
+		if not self.website == 0:
+			self.log.write('Initializing...\n')
+			self.log.write('Opening: ' + self.website +'\n')
+			HTMLData = urllib2.urlopen(self.website)
+			self.log.write('HTML Data Saved to Memory\n')
+			with open(self.path+'html.tmp','w') as filetmp:
+				for line in HTMLData:
+					filetmp.write(line)
+				pass
+			self.log.write('HTML Data Saved Locally\n')
+			with open(self.path+'html.tmp','r') as htmltmp:
+				self.log.write('Reading '+self.path+'html.tmp as var: htmltmp.\n')
+				self.htmlstring = ''
+				for line in htmltmp:
+					self.htmlstring = self.htmlstring + line
+				pass
+			self.log.write('HTML data passed into super-string.\n')
+			with open(self.path+'htmlparse.tmp','w') as htmldata:
+				parser = MyHTMLParser()
+				parser.htmldatastore(htmldata)
+				parser.feed(self.htmlstring)
+				self.log.write('Superstring passed into parser object.\n')
+				pass
+		self.log.write('download method complete.\n')
+	def query(self):
+		self.log.write('query method called and running...\n)
+		#Turn into GUI in the future
+		d1 = raw_input('Do you want to use Default variables (y/n)? ')
+		if d1 == 'n':
+			self.log.write('Non-Default valeus chosen by user\n')
+			lonng = input('Observatory Longitude (def:-77.305325): ')
+			lat = input('Observatory Latitude (def:38.828176): ')
+			days = input('How many days from now do you want to parse to (def:30): ')
+			prec = input('How many times a night do you want to check (def:9): ')
+			prec = int((9*60)/prec)
+			minALT = input('What is the lowest altitude you can observe at (def:20degrees): ')
+			MinMag = input('What is the minimum magnitude you can observe (def:17): ')
+			OnlyActive = raw_input('Only Active Events?(def:y): ')
+			OnlyFuture = raw_input('Look at only future maximums?(def:y): ')
+		else:
+			self.log.write('Default values chosen by user\n')
+			prec = int(270) #minutes, I would keep this between 30 - 280
+			lonng = -77.305325 #degrees East
+			lat = 38.828176 #degrees North
+			days = 60
+			MinMag = 17 #Minimum Magnitude to detect
+			minALT = 20 #Degrees above the horizon
+			OnlyActive = 'y' #Look for only Active Events
+			OnlyFuture = 'y' #Only look at future maximums in the events
+		stringr = 'Values:\n\tObservatory Longitude: '+str(lonng)+'\
+\n\tObservatory Latitude: '+str(lat)+'\n\tDays Out: '+str(days)+'\n\tPrecision: '+str(prec)+'\
+\n\tLowest Altitude: '+str(minALT)+'\n\tMin Magnitude: '+str(MinMag)+'\n\tOnly Active: '+OnlyActive+'\
+\n\tOnly Future Max: '+OnlyFuture+'\n'
+		if OnlyActive == 'y':
+			Act = 1
+		else:
+			Act = 0
+		if OnlyFuture == 'y':
+			OnlyFuture = 1
+		else:
+			OnlyFuture = 0
+		self.log.write(stringr)
+		querydata = [prec,lonng,lat,days,MinMag,minALT,Act,OnlyFuture]
+		return querydata
+	def parse(self):
+		querydata = self.query()
+		precision = querydata[0]
+		ObservLong = querydata[1]
+		ObservLat = querydata[2]
+		daysOut = querydata[3]
+		MinMag = querydata[4]
+		minALT = querydata[5]
+		OnlyActive = querydata[6]
+		OnlyFuture = querydata[7]
+
+class MyHTMLParser(HTMLParser):
+	def htmldatastore(self,htmldata):
+		self.htmldataholder = htmldata
+		super(MyHTMLParser,self).__init__()
+	def handle_data(self, data):
+		if len(data) > 1:
+			self.htmldataholder.write('::DATA: ' + data + '\n')
+	def handle_starttag(self, tag, attrs):
+		self.htmldataholder.write('Item: \n')
+		self.htmldataholder.write('::TAG: ' + tag + '\n')
+		for attr in attrs:
+			if len(attr)<2:
+				self.htmldataholder.write('\t' + attr + '\n')
+			else:
+				st1 = attr[0]
+				st2 = attr[1]
+				self.htmldataholder.write('\t' + st1 + ' = ' + st2 + '\n')
+
+
 ####Main Files####
 #==============================================================================
 # Run MainGrab() if you want to run the parser from scratch, downloading new
@@ -21,38 +135,8 @@ vers = '1.0.0p'
 #  - Now run:: 'OnlyParse(path,log)' where path is as mentioned, and log is the
 #  - variable holding the logMaker object.
 #==============================================================================
-def MainGrab():
-    FolderPath = 'C:/MicroLensParse/'
-    if not os.path.exists(FolderPath):
-        os.makedirs(FolderPath)
-    CurrentPath = FolderPath + 'Run_' + UTC2str(CurrentUTC()) + '/'
-    os.makedirs(CurrentPath)
-    #MakeLog
-    log = LogMaker(CurrentPath)
-    log.write('Exoplanet Micro Lens Parsing Log\nVersion '+vers+', by Joe Renaud\n')
-    Website = 'http://ogle.astrouw.edu.pl/ogle4/ews/ews.html'
-    log.write('Initializing...\n')
-    log.write('Opening: ' + Website +'\n')
-    kstr = DownloadHTMLtext(Website,log,CurrentPath)
-    global htmldata
-    with open(CurrentPath+'htmlparse.tmp','w') as htmldata:
-        parser = MyHTMLParser()
-        log.write('Superstring passed into parser function\n')
-        parser.feed(kstr)
-        pass
-    log.write('OnlyParse Function called\n')
-    log.write('MainGrab Function Finished\n')
-    OnlyParse(CurrentPath,log)
+
 def OnlyParse(Path,log):
-    income = queryUser()
-    precision = income[0]
-    ObservLong = income[1]
-    ObservLat = income[2]
-    daysOut = income[3]
-    MinMag = income[4]
-    minALT = income[5]
-    OnlyActive = income[6]
-    OnlyFuture = income[7]
     compactPrintout = 'n'
     log.write('Previous Log file found\n')
     log.write('OnlyParse function is now running...\n')
@@ -118,11 +202,6 @@ def queryUser():
     return prec,lonng,lat,days,MinMag,minALT,Act,OnlyFuture
 #######Back Ground Files#######
 
-def LogMaker(CurrentPath):
-    logpath = CurrentPath + 'Output.log'
-    log = open(logpath,'w')
-    #
-    return log
 def inputintoobject(data,log):
     log.write('CSVfile made\n')
     lines=data.readlines()
