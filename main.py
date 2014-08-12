@@ -7,18 +7,18 @@ Created on Mon Jul 28 21:08:13 2014
 from HTMLParser import HTMLParser
 from numpy import sin,arcsin,cos,pi,arccos
 import os,urllib2,datetime
-vers = '0.9.2p'
+vers = '1.0.0p'
 ####Main Files####
 #==============================================================================
-# Run MainGrab() if you want to run the parser from scratch, downloading new 
+# Run MainGrab() if you want to run the parser from scratch, downloading new
 # files.
 #
 # Run OnlyParse if you do not want to download files. However, follow these instructions:
 #  - First make a folder with the data you want to parse saved as 'htmlparse.tmp'
-#  - Record the file path to the main folder holing the htmlparse.tmp, this is 
+#  - Record the file path to the main folder holing the htmlparse.tmp, this is
 #  - where all data will be saved.
 #  - Run:: 'log = logMaker(path)' where path is the aforementioned path
-#  - Now run:: 'OnlyParse(path,log)' where path is as mentioned, and log is the 
+#  - Now run:: 'OnlyParse(path,log)' where path is as mentioned, and log is the
 #  - variable holding the logMaker object.
 #==============================================================================
 def MainGrab():
@@ -52,6 +52,7 @@ def OnlyParse(Path,log):
     MinMag = income[4]
     minALT = income[5]
     OnlyActive = income[6]
+    OnlyFuture = income[7]
     compactPrintout = 'n'
     log.write('Previous Log file found\n')
     log.write('OnlyParse function is now running...\n')
@@ -84,7 +85,7 @@ def OnlyParse(Path,log):
             print str(pnew) + '% Complete'
             pold = pnew
         for event in events:
-            data = event.parse(ObservLong,ObservLat,time,MinMag,minALT,OnlyActive)
+            data = event.parse(ObservLong,ObservLat,time,MinMag,minALT,OnlyActive,OnlyFuture)
             if data[0]:
                 event.print2CSV(compactPrintout,Path,time,data[1],data[2])
     log.write('Parser Finished\n')
@@ -96,30 +97,32 @@ def queryUser():
         lat = input('Observatory Latitude (def:38.828176): ')
         days = input('How many days from now do you want to parse to (def:30): ')
         prec = input('How many times a night do you want to check (def:9): ')
-        prec = (9*60)/prec
+        prec = int((9*60)/prec)
         minALT = input('What is the lowest altitude you can observe at (def:20degrees): ')
         MinMag = input('What is the minimum magnitude you can observe (def:17): ')
         OnlyActive = raw_input('Only Active Events?(def:y): ')
+        OnlyFuture = input('Look at only future maximums?(def:1): ')
         if OnlyActive == 'y':
             Act = 1
         else:
             Act = 0
     else:
-        prec = 60 #minutes, I would keep this between 30 - 240
+        prec = int(270) #minutes, I would keep this between 30 - 280
         lonng = -77.305325 #degrees East
         lat = 38.828176 #degrees North
         days = 60
         MinMag = 17 #Minimum Magnitude to detect
         minALT = 20 #Degrees above the horizon
         Act = 1 #Look for only Active Events
-    return prec,lonng,lat,days,MinMag,minALT,Act
+        OnlyFuture = 1 #Only look at future maximums in the events
+    return prec,lonng,lat,days,MinMag,minALT,Act,OnlyFuture
 #######Back Ground Files#######
-    
+
 def LogMaker(CurrentPath):
     logpath = CurrentPath + 'Output.log'
     log = open(logpath,'w')
     #
-    return log    
+    return log
 def inputintoobject(data,log):
     log.write('CSVfile made\n')
     lines=data.readlines()
@@ -164,7 +167,7 @@ def inputintoobject(data,log):
                 url = 'http://ogle.astrouw.edu.pl/ogle4/ews/'+url
                 events.append(microevent(active,url,starno,RA,DEC,tmaxhj,tmaxut,tau,umin,amax,dmag,fbl,ibl,io))
     return events
-				
+
 def ParseDataFile(htmldata,datastore,log,Path):
     nextline = 0
     nextlinego = 0
@@ -183,7 +186,7 @@ def ParseDataFile(htmldata,datastore,log,Path):
         elif nextlinego == 1:
             datastore.write('LIVE!----------------\n')
             actives +=1
-        
+
         if line[0:9] == '::TAG: td':
             nextline = 1;
         elif line[0:8] == '::TAG: a':
@@ -195,7 +198,7 @@ def ParseDataFile(htmldata,datastore,log,Path):
         else:
             nextline = 0;
             nextlinego = 0;
-            newitem = 0;       
+            newitem = 0;
     log.write('--- '+ str(newevents)+ ' New Event(s) Found!\n')
     log.write('--- ' + str(actives) + ' Active Event(s) Found!\n')
 class MyHTMLParser(HTMLParser):
@@ -241,7 +244,7 @@ def UTC2str(UTC):
         m = str(UTC.month)
     if UTC.day <10:
         d = '0' + str(UTC.day)
-    else: 
+    else:
         d = str(UTC.day)
     if UTC.hour <10:
         hr = '0' + str(UTC.hour)
@@ -259,7 +262,7 @@ def UTC2str(UTC):
     return Full
 def dateFinder(NowQ,days,precision):
     #days - out from now
-    #precision in minutes 
+    #precision in minutes
     starthourUTC = '00:00'
     endhourUTC = '09:00'
     daysinmonths = {1:31,2:28,3:31,4:30,5:31,6:30,7:31,8:31,9:30,10:31,11:30,12:31}
@@ -309,7 +312,7 @@ def dateFinder(NowQ,days,precision):
         print 'Sorry, this feature is not yet implemented.'
     return UTCtimes
 class microevent:
-	version = '0.4.1p'
+	version = '0.4.5p'
 	versionDate = '8-11-2014'
 	def __init__(self,a,u,s,r,d,tmj,tmu,tu,umn,am,dma,fbl,ibl,io):
 		self.active = a
@@ -362,107 +365,108 @@ class microevent:
 		else:
 			print 'Invalid string'
 	def parseVisibility(self,lonng,lat,UTC,minALT):
-          #Methods based upon the great website: 
-          # http://www.stargazing.net/kepler/altaz.html accesed 8/2014
-          # Please cite the above in any publications
-          RA = RAtoHours_Deg(self.ra,'y')
-          DEC = DECtoDeg(self.dec,'n')
-          d = daysFromJ2000(UTC)
-          LST = LST_finder(d,UTC,lonng)
-          HA = HA_finder(RA,LST)
-          AltAz = AltAzmu_finder(RA,DEC,HA,lat)
-          alt = AltAz[0]
-          azmu = AltAz[1]
-          if alt < minALT:
-              IsVis = False
-          else:
-              IsVis = True
-          VisibData = [IsVis,alt,azmu]
-          return VisibData
-		#return Visibility
+		#Methods based upon the great website:
+		# http://www.stargazing.net/kepler/altaz.html accesed 8/2014
+		# Please cite the above in any publications
+		RA = RAtoHours_Deg(self.ra,'y')
+		DEC = DECtoDeg(self.dec,'n')
+		d = daysFromJ2000(UTC)
+		LST = LST_finder(d,UTC,lonng)
+		HA = HA_finder(RA,LST)
+		AltAz = AltAzmu_finder(RA,DEC,HA,lat)
+		alt = AltAz[0]
+		azmu = AltAz[1]
+		if alt < minALT:
+			IsVis = False
+		else:
+			IsVis = True
+		VisibData = [IsVis,alt,azmu]
+		return VisibData
 	def parseMinimumMag(self,MinMag):
-		if float(self.i_o)-float(self.d_mag) < MinMag:
+		if float(self.i_o)< MinMag:
 			MinMagTest = True
 		else:
 			MinMagTest = False
 		return MinMagTest
-	def parse(self,lonng,lat,utc,minmag,minALT,OnlyActive):
-         if OnlyActive == 1:
-             if int(self.active) == 1:
-                 nxt = 1
-             else:
-                 nxt = 0
-         else:
-             nxt = 1
-         if nxt == 1:
-             VisibData = self.parseVisibility(lonng,lat,utc,minALT)
-             if (minmag == 'NA' and VisibData[0]):
-                 parsepass = True
-             elif (self.parseMinimumMag(minmag) and VisibData[0]):
-                 parsepass = True
-             else:
-                 parsepass = False
-             parsedata = [parsepass,VisibData[1],VisibData[2]]
-         else:
-             parsedata = [False,0,0]
-         return parsedata
+	def parseFuture(self,futureDate):
+		if (float(self.t_max_hjd)-futureDate) > 0:
+			Future = True
+		else:
+			Future = False
+		return Future
+	def parse(self,lonng,lat,utc,minmag,minALT,OnlyActive,OnlyFuture):
+		#Long and Lat must be in decimal degrees eg: 23.210012
+		#UTC must be a datetime object.
+		#minmag should be in conventional units.
+		#minALT should be in degrees 0-90
+		#OnlyActive and OnlyFuture should be 1 for yes, 0 for no
+		if OnlyFuture == 1:
+			currentJD = datetime2String_Num(utc,'jd')
+			FutureQuery = self.parseFuture(currentJD)
+		else:
+			FutureQuery = True
+		VisibData = self.parseVisibility(lonng,lat,utc,minALT)
+		if int(self.active) == OnlyActive and VisibData[0] and self.parseMinimumMag(minmag) and FutureQuery:
+			parsedata = VisibData
+		else:
+			parsedata = [False,0,0]
+		return parsedata
 	def print2CSV(self,compact,filepath,time,alt,azmu):
-         if compact == 'y':
-             stringout = self.active+','+datetime2String_Num(time,'s')+','+str(alt)+','+str(azmu)+','+self.html+','+self.ra+','+self.dec+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.d_mag+','+self.i_bl+','+self.i_o+'\n'
-         else:
-             stringout = self.active+','+datetime2String_Num(time,'s')+','+str(alt)+','+str(azmu)+','+self.html+','+self.starno+','+self.ra+','+self.dec+','+self.t_max_hjd+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.a_max+','+self.d_mag+','+self.f_bl+','+self.i_bl+','+self.i_o+'\n'
-         if os.path.isfile(filepath+'output.csv'):
-             with open(filepath+'output.csv','a') as csv:
-                 csv.write(stringout)
-                 pass
-         else:
-             with open(filepath+'output.csv','w') as csv:
-                 if compact == 'y':
-                     csv.write('Active,Date-Time(UTC),Alt,Azmu,HTML,RA(J2000),DEC(J2000),T_MAX(UT),tau,U_min,D_mag,f_bl,I_bl,I_o\n')
-                     csv.write(stringout)
-                     pass
-                 else:
-                     csv.write('Active,Date-Time(UTC),Alt,Azmu,HTML,StarNo,RA(J2000),DEC(J2000),T_MAX(HJD),T_MAX(UT),tau,U_min,A_MAX,D_mag,f_bl,I_bl,I_o\n')
-                     csv.write(stringout)
-                     pass
+		if compact == 'y':
+			stringout = self.active+','+datetime2String_Num(time,'s')+','+str(alt)+','+str(azmu)+','+self.html+','+self.ra+','+self.dec+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.d_mag+','+self.i_bl+','+self.i_o+'\n'
+		else:
+			stringout = self.active+','+datetime2String_Num(time,'s')+','+str(alt)+','+str(azmu)+','+self.html+','+self.starno+','+self.ra+','+self.dec+','+self.t_max_hjd+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.a_max+','+self.d_mag+','+self.f_bl+','+self.i_bl+','+self.i_o+'\n'
+		if os.path.isfile(filepath+'output.csv'):
+			with open(filepath+'output.csv','a') as csv:
+				csv.write(stringout)
+				pass
+		else:
+			with open(filepath+'output.csv','w') as csv:
+				if compact == 'y':
+					csv.write('Active,Date-Time(UTC),Alt,Azmu,HTML,RA(J2000),DEC(J2000),T_MAX(UT),tau,U_min,D_mag,f_bl,I_bl,I_o\n')
+					csv.write(stringout)
+				else:
+					csv.write('Active,Date-Time(UTC),Alt,Azmu,HTML,StarNo,RA(J2000),DEC(J2000),T_MAX(HJD),T_MAX(UT),tau,U_min,A_MAX,D_mag,f_bl,I_bl,I_o\n')
+					csv.write(stringout)
+				pass
 def datetime2String_Num(time,outputType):
-    y = time.year
-    m = time.month
-    d = time.day
-    h = time.hour
-    mn = time.minute
-    s = time.second
-    if outputType == 's':
-        output = str(m)+'-'+str(d)+'-'+str(y)+' '+str(h)+':'+str(mn)+':'+str(s)
-    elif outputType == 'ymdx':
-        mn = float(mn + s/60)
-        h = float(h + m/60)
-        d = float(d + h/24)
-        output = [y,m,d]
-    elif outputType == 'hx':
-        m = m + s/60
-        h = h + m/60
-        output = h
-    elif outputType == 'tonly':
-        output = [h,mn,s]
-    elif outputType == 'donly':
-        output = [y,m,d]
-    elif outputType == 'jd':
-        y = float(y)
-        m = float(m)
-        d = float(d)
-        mterm=int((m-14)/12)
-        aterm=int((1461*(y+4800+mterm))/4)
-        bterm=int((367*(m-2-12*mterm))/12)
-        cterm=int((3*int((y+4900+mterm)/100))/4)
-        j=aterm+bterm-cterm+d
-        j -= 32075
-        #offset to start of day
-        j -= 0.5
-        #    print "h/m/s: %f/%f/%f"%(hr,min,sec)
-        #Apply the time
-        output = j + (h + (mn + (s/60.0))/60.0)/24.0
-    return output
+	y = time.year
+	m = time.month
+	d = time.day
+	h = time.hour
+	mn = time.minute
+	s = time.second
+	if outputType == 's':
+		output = str(m)+'-'+str(d)+'-'+str(y)+' '+str(h)+':'+str(mn)+':'+str(s)
+	elif outputType == 'ymdx':
+		mn = float(mn + s/60)
+		h = float(h + m/60)
+		d = float(d + h/24)
+		output = [y,m,d]
+	elif outputType == 'hx':
+		m = m + s/60
+		h = h + m/60
+		output = h
+	elif outputType == 'tonly':
+		output = [h,mn,s]
+	elif outputType == 'donly':
+		output = [y,m,d]
+	elif outputType == 'jd':
+		y = float(y)
+		m = float(m)
+		d = float(d)
+		mterm=int((m-14)/12)
+		aterm=int((1461*(y+4800+mterm))/4)
+		bterm=int((367*(m-2-12*mterm))/12)
+		cterm=int((3*int((y+4900+mterm)/100))/4)
+		j=aterm+bterm-cterm+d
+		j -= 32075
+		#offset to start of day
+		j -= 0.5
+		#    print "h/m/s: %f/%f/%f"%(hr,min,sec)
+		#Apply the time
+		output = j + (h + (mn + (s/60.0))/60.0)/24.0
+	return output
 def DECtoDeg(string,radQ):
     if string[2] == ':':
         pn = 'pos'
@@ -519,16 +523,16 @@ def LST_finder(d,Ut,lonng):
     # Based upon the number of days from the epoch J2000
 #==============================================================================
 # LST = 100.46 + 0.985647 * d + long + 15*UT
-# 
+#
 #       d    is the days from J2000, including the fraction of
 #            a day
 #       UT   is the universal time in decimal hours
 #       long is your longitude in decimal degrees, East positive.
-#       
+#
 # Add or subtract multiples of 360 to bring LST in range 0 to 360 degrees.
-# and this formula gives your local siderial time in degrees. You can divide by 
-# 15 to get your local siderial time in hours, but often we leave the figure in 
-# degrees. The approximation is within 0.3 seconds of time for dates within 100 
+# and this formula gives your local siderial time in degrees. You can divide by
+# 15 to get your local siderial time in hours, but often we leave the figure in
+# degrees. The approximation is within 0.3 seconds of time for dates within 100
 # years of J2000.
 #==============================================================================
     dcHours = datetime2String_Num(Ut,'hx')
@@ -554,7 +558,7 @@ def HA_finder(RA,LST):
     HA = HAtmp
     return HA
 def AltAzmu_finder(RA,DEC,HA,LAT):
-    #RA,DEC,HA should all be in degrees. However, numpy's sin/cos defaults to 
+    #RA,DEC,HA should all be in degrees. However, numpy's sin/cos defaults to
     #Radians so we need to convert before use.
     RA = RA*(pi/180)
     DEC = DEC*(pi/180)
