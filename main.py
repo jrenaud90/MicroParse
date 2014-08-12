@@ -4,11 +4,12 @@ from numpy import sin,arcsin,cos,pi,arccos
 import os,urllib2,datetime
 class MuParse():
 	def __init__(self,pathQ,website):
-		self.version = '1.2.2n'
+		self.version = '1.2.4n'
 		self.date = '8-12-14'
+		self.currentime = astroTimeObject(datetime.datetime.utcnow())
 		if pathQ == 'd':
 			#Default Path
-			self.path = 'C:/MicroLensParse/'+ 'Run_' + UTC2str(CurrentUTC()) + '/'
+			self.path = 'C:/MicroLensParse/'+ 'Run_' + self.currentime.str_num('s2') + '/'
 		else:
 			self.path = pathQ
 		if not os.path.exists(self.path):
@@ -53,7 +54,7 @@ class MuParse():
 				pass
 		self.log.write('download method complete.\n')
 	def query(self):
-		self.log.write('query method called and running...\n)
+		self.log.write('query method called and running...\n')
 		#Turn into GUI in the future
 		d1 = raw_input('Do you want to use Default variables (y/n)? ')
 		if d1 == 'n':
@@ -102,6 +103,45 @@ class MuParse():
 		minALT = querydata[5]
 		OnlyActive = querydata[6]
 		OnlyFuture = querydata[7]
+		compactPrintout = 'n'
+		self.log.write('Parse Method is now running...\n')
+		self.log.write('CompactPrintout: ' + compactPrintout)
+		with open(self.path+'htmlparse.tmp','r') as htmldata:
+			self.log.write('Data found!\n')
+			with open(self.path + 'ParseOutput.tmp','w') as datastore:
+				ParseDataFile(htmldata,datastore,log,Path) ###
+				pass
+			pass
+		with open(self.path + 'ParseOutput.tmp','r') as datastore:
+			events = inputintoobject(datastore,log) ###
+			self.log.write('Events Found\n')
+			pass
+		times = dateFinder('y',daysOut,precision)
+		self.log.write('Times Found\n')
+		self.log.write('events: ' + str(len(events))+'\n')
+		self.log.write('times: ' + str(len(times))+'\n')
+		self.log.write('Running through events and times\n')
+		timerr = len(times)
+		print '25% Complete'
+		dt = float(float((100-25))/timerr)
+		perc = float(25)
+		pold = 25
+		for time in times:
+			perc = perc + dt
+			pnew = int(perc)
+			if pnew != pold:
+				print str(pnew) + '% Complete'
+				pold = pnew
+			for event in events:
+				data = event.parse(ObservLong,ObservLat,time,MinMag,minALT,OnlyActive,OnlyFuture)
+				if data[0]:
+					event.print2CSV(compactPrintout,self.path,time,data[1],data[2])
+		log.write('Parser Finished\n')
+		print '100% Complete'
+
+
+
+
 
 class MyHTMLParser(HTMLParser):
 	def htmldatastore(self,htmldata):
@@ -135,71 +175,75 @@ class MyHTMLParser(HTMLParser):
 #  - Now run:: 'OnlyParse(path,log)' where path is as mentioned, and log is the
 #  - variable holding the logMaker object.
 #==============================================================================
+def CurrentUTC():
+    #Needs imported datetime
+    x = datetime.datetime.utcnow()
+    return x
+class astroTimeObject():
+	def __init__(self,UTCDateTimeObject):
+		self.utc=UTCDateTimeObject
+	def str_num(self,outputType):
+		y = self.utc.year
+		m = self.utc.month
+		d = self.utc.day
+		h = self.utc.hour
+		mn = self.utc.minute
+		s = self.utc.second
+		if outputType == 's':
+			output = str(m)+'-'+str(d)+'-'+str(y)+' '+str(h)+':'+str(mn)+':'+str(s)
+		elif outputType == 'ymdx':
+			mn = float(mn + s/60)
+			h = float(h + m/60)
+			d = float(d + h/24)
+			output = [y,m,d]
+		elif outputType == 'hx':
+			m = m + s/60
+			h = h + m/60
+			output = h
+		elif outputType == 'tonly':
+			output = [h,mn,s]
+		elif outputType == 'donly':
+			output = [y,m,d]
+		elif outputType == 'jd':
+			y = float(y)
+			m = float(m)
+			d = float(d)
+			mterm=int((m-14)/12)
+			aterm=int((1461*(y+4800+mterm))/4)
+			bterm=int((367*(m-2-12*mterm))/12)
+			cterm=int((3*int((y+4900+mterm)/100))/4)
+			j=aterm+bterm-cterm+d
+			j -= 32075
+			#offset to start of day
+			j -= 0.5
+			#    print "h/m/s: %f/%f/%f"%(hr,min,sec)
+			#Apply the time
+			output = j + (h + (mn + (s/60.0))/60.0)/24.0
+		elif outputType == 's2':
+			if m <10:
+				m = '0' + str(m)
+			else:
+				m = str(m)
+			if d <10:
+				d = '0' + str(d)
+			else:
+				d = str(d)
+			if h <10:
+				h = '0' + str(h)
+			else:
+				h = str(h)
+			if mn <10:
+				mn = '0' + str(mn)
+			else:
+				mn = str(mn)
+			if s <10:
+				s = '0' + str(s)
+			else:
+				s = str(s)
+			output = m+d+y+'-'+h+mn+s
+		return output
 
-def OnlyParse(Path,log):
-    compactPrintout = 'n'
-    log.write('Previous Log file found\n')
-    log.write('OnlyParse function is now running...\n')
-    global htmldata
-    global datastore
-    with open(Path+'htmlparse.tmp','r') as htmldata:
-        log.write('Data found!\n')
-        with open(Path + 'ParseOutput.tmp','w') as datastore:
-            ParseDataFile(htmldata,datastore,log,Path)
-            pass
-        pass
-    with open(Path + 'ParseOutput.tmp','r') as datastore:
-        events = inputintoobject(datastore,log)
-        log.write('Events Found\n')
-        pass
-    times = dateFinder('y',daysOut,precision)
-    log.write('Times Found\n')
-    log.write('Running through events and times\n')
-    log.write('events: ' + str(len(events))+'\n')
-    log.write('times: ' + str(len(times))+'\n')
-    timerr = len(times)
-    print '25% Complete'
-    dt = float(float((100-25))/timerr)
-    perc = float(25)
-    pold = 25
-    for time in times:
-        perc = perc + dt
-        pnew = int(perc)
-        if pnew != pold:
-            print str(pnew) + '% Complete'
-            pold = pnew
-        for event in events:
-            data = event.parse(ObservLong,ObservLat,time,MinMag,minALT,OnlyActive,OnlyFuture)
-            if data[0]:
-                event.print2CSV(compactPrintout,Path,time,data[1],data[2])
-    log.write('Parser Finished\n')
-    print '100% Complete'
-def queryUser():
-    d1 = raw_input('Do you want to use Default variables (y/n)? ')
-    if d1 == 'n':
-        lonng = input('Observatory Longitude (def:-77.305325): ')
-        lat = input('Observatory Latitude (def:38.828176): ')
-        days = input('How many days from now do you want to parse to (def:30): ')
-        prec = input('How many times a night do you want to check (def:9): ')
-        prec = int((9*60)/prec)
-        minALT = input('What is the lowest altitude you can observe at (def:20degrees): ')
-        MinMag = input('What is the minimum magnitude you can observe (def:17): ')
-        OnlyActive = raw_input('Only Active Events?(def:y): ')
-        OnlyFuture = input('Look at only future maximums?(def:1): ')
-        if OnlyActive == 'y':
-            Act = 1
-        else:
-            Act = 0
-    else:
-        prec = int(270) #minutes, I would keep this between 30 - 280
-        lonng = -77.305325 #degrees East
-        lat = 38.828176 #degrees North
-        days = 60
-        MinMag = 17 #Minimum Magnitude to detect
-        minALT = 20 #Degrees above the horizon
-        Act = 1 #Look for only Active Events
-        OnlyFuture = 1 #Only look at future maximums in the events
-    return prec,lonng,lat,days,MinMag,minALT,Act,OnlyFuture
+
 #######Back Ground Files#######
 
 def inputintoobject(data,log):
@@ -280,37 +324,6 @@ def ParseDataFile(htmldata,datastore,log,Path):
             newitem = 0;
     log.write('--- '+ str(newevents)+ ' New Event(s) Found!\n')
     log.write('--- ' + str(actives) + ' Active Event(s) Found!\n')
-class MyHTMLParser(HTMLParser):
-    def handle_data(self, data):
-        if len(data) > 1:
-            htmldata.write('::DATA: ' + data + '\n')
-    def handle_starttag(self, tag, attrs):
-        htmldata.write('Item: \n')
-        htmldata.write('::TAG: ' + tag + '\n')
-        for attr in attrs:
-            if len(attr)<2:
-                htmldata.write('\t' + attr + '\n')
-            else:
-                st1 = attr[0]
-                st2 = attr[1]
-                htmldata.write('\t' + st1 + ' = ' + st2 + '\n')
-def DownloadHTMLtext(html,log,CurrentPath):
-        HtmlData = urllib2.urlopen(html)
-        log.write('HTML Data Downloaded\n')
-        path = CurrentPath+'html.tmp'
-        with open(path,'w') as filetmp:
-            for line in HtmlData:
-                filetmp.write(line)
-            pass
-        log.write('HTML Data Saved Locally\n')
-        with open(path,'r') as html1:
-            log.write('Reading ' + path + 'as var: html1\n')
-            kstr = ''
-            for line in html1:
-                kstr = kstr + line #Make large string of the html file
-            pass
-        log.write('HTML data passed into super-string\n')
-        return kstr
 def CurrentUTC():
     #Needs imported datetime
     x = datetime.datetime.utcnow()
