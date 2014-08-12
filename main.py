@@ -4,7 +4,7 @@ from numpy import sin,arcsin,cos,pi,arccos
 import os,urllib2,datetime
 class MuParse():
 	def __init__(self,pathQ,website):
-		self.version = '1.2.4n'
+		self.version = '1.3.4n'
 		self.date = '8-12-14'
 		self.currentime = astroTimeObject(datetime.datetime.utcnow())
 		if pathQ == 'd':
@@ -116,7 +116,7 @@ class MuParse():
 			events = inputintoobject(datastore,log) ###
 			self.log.write('Events Found\n')
 			pass
-		times = dateFinder('y',daysOut,precision)
+		times = self.dateFinder('y',daysOut,precision)
 		self.log.write('Times Found\n')
 		self.log.write('events: ' + str(len(events))+'\n')
 		self.log.write('times: ' + str(len(times))+'\n')
@@ -136,8 +136,67 @@ class MuParse():
 				data = event.parse(ObservLong,ObservLat,time,MinMag,minALT,OnlyActive,OnlyFuture)
 				if data[0]:
 					event.print2CSV(compactPrintout,self.path,time,data[1],data[2])
-		log.write('Parser Finished\n')
+		self.log.write('Parser Finished\n')
 		print '100% Complete'
+	def dateFinder(self,NowQ,days,precision):
+		#days - out from now
+		#precision in minutes
+		starthourUTC = '00:00'
+		endhourUTC = '09:00'
+		daysinmonthsNolp = {1:31,2:28,3:31,4:30,5:31,6:30,7:31,8:31,9:30,10:31,11:30,12:31}
+		daysinmonthslp = {1:31,2:29,3:31,4:30,5:31,6:30,7:31,8:31,9:30,10:31,11:30,12:31}
+		#Note, code does not account for leap years at this stage.
+		if NowQ == 'y':
+			ymd = self.currenttime.str_num('donly')
+			syear = ymd[0]
+			smonth = ymd[1]
+			sday = ymd[2]
+			hmns = self.currenttime.str_num('tonly')
+			shour = hmns[0]
+			if shour >= 0 and shour <= 4:
+				if sday == 1:
+					if smonth == 1:
+						syear = syear -1
+						smonth = 12
+					else:
+						smonth = smonth - 1
+					if syear == 2016 or syear == 2020:
+						sday = daysinmonthslp[smonth]
+					else:
+						sday = daysinmonthsNolp[smonth]
+				else:
+					sday = sday - 1
+			shour = int(starthourUTC[0:2])
+			smin = int(starthourUTC[3:len(starthourUTC)])
+			ehour = int(endhourUTC[0:2])
+			emin = int(endhourUTC[3:len(endhourUTC)])
+			thour = shour
+			tmin = smin
+			tday = sday
+			tmonth = smonth
+			tyear = syear
+			UTCtimes = []
+			for i in range(1,days):
+				thour = shour
+				tmin = smin
+				if tday > daysinmonthsNolp[tmonth]:
+					tday = tday - daysinmonthsNolp[tmonth]
+					tmonth = tmonth + 1
+					if tmonth > 12:
+						tmonth = 1
+						tyear = tyear + 1
+				while thour < ehour or tmin < emin:
+					UTCtimes.append(datetime.datetime(tyear,tmonth,tday,thour,tmin))
+					tmin = tmin+precision
+					while tmin > 59:
+						thour = thour + 1
+						tmin = tmin - 60
+				tday = tday + 1
+		else:
+			print 'Sorry, this feature is not yet implemented.'
+		return UTCtimes
+
+
 
 
 
@@ -324,85 +383,7 @@ def ParseDataFile(htmldata,datastore,log,Path):
             newitem = 0;
     log.write('--- '+ str(newevents)+ ' New Event(s) Found!\n')
     log.write('--- ' + str(actives) + ' Active Event(s) Found!\n')
-def CurrentUTC():
-    #Needs imported datetime
-    x = datetime.datetime.utcnow()
-    return x
-def UTC2str(UTC):
-    y=str(UTC.year)
-    if UTC.month <10:
-        m = '0' + str(UTC.month)
-    else:
-        m = str(UTC.month)
-    if UTC.day <10:
-        d = '0' + str(UTC.day)
-    else:
-        d = str(UTC.day)
-    if UTC.hour <10:
-        hr = '0' + str(UTC.hour)
-    else:
-        hr = str(UTC.hour)
-    if UTC.minute <10:
-        mn = '0' + str(UTC.minute)
-    else:
-        mn = str(UTC.minute)
-    if UTC.second <10:
-        sc = '0' + str(UTC.second)
-    else:
-        sc = str(UTC.second)
-    Full = m+d+y+'-'+hr+mn+sc
-    return Full
-def dateFinder(NowQ,days,precision):
-    #days - out from now
-    #precision in minutes
-    starthourUTC = '00:00'
-    endhourUTC = '09:00'
-    daysinmonths = {1:31,2:28,3:31,4:30,5:31,6:30,7:31,8:31,9:30,10:31,11:30,12:31}
-    #Note, code does not account for leap years at this stage.
-    if NowQ == 'y':
-        now = datetime.datetime.utcnow()
-        syear = now.year
-        smonth = now.month
-        sday = now.day
-        if now.hour >= 0 and now.hour <= 4:
-            if sday == 1:
-                if smonth == 1:
-                    syear = syear -1
-                    smonth = 12
-                else:
-                    smonth = smonth - 1
-                sday = daysinmonths[smonth]
-            else:
-                sday = sday - 1
-        shour = int(starthourUTC[0:2])
-        smin = int(starthourUTC[3:len(starthourUTC)])
-        ehour = int(endhourUTC[0:2])
-        emin = int(endhourUTC[3:len(endhourUTC)])
-        thour = shour
-        tmin = smin
-        tday = sday
-        tmonth = smonth
-        tyear = syear
-        UTCtimes = []
-        for i in range(1,days):
-            thour = shour
-            tmin = smin
-            if tday > daysinmonths[tmonth]:
-                tday = tday - daysinmonths[tmonth]
-                tmonth = tmonth + 1
-                if tmonth > 12:
-                    tmonth = 1
-                    tyear = tyear + 1
-            while thour < ehour or tmin < emin:
-                UTCtimes.append(datetime.datetime(tyear,tmonth,tday,thour,tmin))
-                tmin = tmin+precision
-                while tmin > 59:
-                    thour = thour + 1
-                    tmin = tmin - 60
-            tday = tday + 1
-    else:
-        print 'Sorry, this feature is not yet implemented.'
-    return UTCtimes
+
 class microevent:
 	version = '0.4.5p'
 	versionDate = '8-11-2014'
@@ -460,8 +441,8 @@ class microevent:
 		#Methods based upon the great website:
 		# http://www.stargazing.net/kepler/altaz.html accesed 8/2014
 		# Please cite the above in any publications
-		RA = RAtoHours_Deg(self.ra,'y')
-		DEC = DECtoDeg(self.dec,'n')
+		RA = self.RAtoHours_Deg('y')
+		DEC = self.DECtoDeg('n')
 		d = daysFromJ2000(UTC)
 		LST = LST_finder(d,UTC,lonng)
 		HA = HA_finder(RA,LST)
@@ -521,75 +502,39 @@ class microevent:
 					csv.write('Active,Date-Time(UTC),Alt,Azmu,HTML,StarNo,RA(J2000),DEC(J2000),T_MAX(HJD),T_MAX(UT),tau,U_min,A_MAX,D_mag,f_bl,I_bl,I_o\n')
 					csv.write(stringout)
 				pass
-def datetime2String_Num(time,outputType):
-	y = time.year
-	m = time.month
-	d = time.day
-	h = time.hour
-	mn = time.minute
-	s = time.second
-	if outputType == 's':
-		output = str(m)+'-'+str(d)+'-'+str(y)+' '+str(h)+':'+str(mn)+':'+str(s)
-	elif outputType == 'ymdx':
-		mn = float(mn + s/60)
-		h = float(h + m/60)
-		d = float(d + h/24)
-		output = [y,m,d]
-	elif outputType == 'hx':
-		m = m + s/60
-		h = h + m/60
-		output = h
-	elif outputType == 'tonly':
-		output = [h,mn,s]
-	elif outputType == 'donly':
-		output = [y,m,d]
-	elif outputType == 'jd':
-		y = float(y)
-		m = float(m)
-		d = float(d)
-		mterm=int((m-14)/12)
-		aterm=int((1461*(y+4800+mterm))/4)
-		bterm=int((367*(m-2-12*mterm))/12)
-		cterm=int((3*int((y+4900+mterm)/100))/4)
-		j=aterm+bterm-cterm+d
-		j -= 32075
-		#offset to start of day
-		j -= 0.5
-		#    print "h/m/s: %f/%f/%f"%(hr,min,sec)
-		#Apply the time
-		output = j + (h + (mn + (s/60.0))/60.0)/24.0
-	return output
-def DECtoDeg(string,radQ):
-    if string[2] == ':':
-        pn = 'pos'
-        D = float(string[0:2])
-        M = float(string[3:5])
-        S = float(string[6:len(string)])
-    else:
-        pn = 'neg'
-        D = float(string[1:3])
-        M = float(string[4:6])
-        S = float(string[7:len(string)])
-    M = M + S/60
-    D = D + M/60
-    if pn == 'neg':
-        D = 360-D
-    if radQ =='y':
-        out = D*(pi/180)
-    else:
-        out = D
-    return out
-def RAtoHours_Deg(string,ConvrtDegQ):
-    H = float(string[0:2])
-    M = float(string[3:5])
-    S = float(string[6:len(string)])
-    M = M + S/60
-    H = H + M/60
-    if ConvrtDegQ == 'y':
-        out = H*15
-    else:
-        out = H
-    return out
+	def DECtoDeg(self,radQ):
+		string = self.dec
+		if string[2] == ':':
+			pn = 'pos'
+			D = float(string[0:2])
+			M = float(string[3:5])
+			S = float(string[6:len(string)])
+		else:
+			pn = 'neg'
+			D = float(string[1:3])
+			M = float(string[4:6])
+			S = float(string[7:len(string)])
+			M = M + S/60
+			D = D + M/60
+		if pn == 'neg':
+			D = 360-D
+		if radQ =='y':
+			out = D*(pi/180)
+		else:
+			out = D
+		return out
+	def RAtoHours_Deg(self,ConvrtDegQ):
+		string = self.ra
+		H = float(string[0:2])
+		M = float(string[3:5])
+		S = float(string[6:len(string)])
+		M = M + S/60
+		H = H + M/60
+		if ConvrtDegQ == 'y':
+			out = H*15
+		else:
+			out = H
+		return out
 def daysFromJ2000(UTC):
     #input is a datetime object in UTC
     #J2000 is defined as 1200 hrs UT on Jan 1st 2000 AD
