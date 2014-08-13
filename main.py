@@ -3,63 +3,78 @@ from HTMLParser import HTMLParser
 from numpy import sin,arcsin,cos,pi,arccos
 import os,urllib2,datetime
 class MuParse():
-	def __init__(self,pathQ,website):
-		self.version = '1.7.1n'
+	def __init__(self,website,**optional):
+		self.version = '1.8.3p'
 		self.date = '8-12-14'
 		self.currentime = astroTimeObject(datetime.datetime.utcnow())
-		if pathQ == 'd':
-			#Default Path
-			self.path = 'C:/MicroLensParse/'+ 'Run_' + self.currentime.str_num('s2') + '/'
+		## Optional Inputs
+		if ('path' in optional):
+			self.path = optional['path']
+		elif ('filepath' in optional):
+			self.path = optional['filepath']
 		else:
-			self.path = pathQ
+			self.path = 'C:/MicroLensParse/'+ 'Run_' + self.currentime.str_num('s2') + '/'
+		###
+		## Create Folder
 		if not os.path.exists(self.path):
 			os.makedirs(self.path)
+		###
+		## Create Log
 		self.log = open(self.path+'Output.log','w')
-		self.log.write('---MuParse---\nWritten by Joe Renaud at George Mason University\nVersion: '+self.version+'\tDate: '+self.date+'\n')
-		self.log.write('MuParse Constructor Called\n')
-		self.log.write('Data to be recorded at '+self.path+'\n')
+		self.logwrite('---MuParse---\nWritten by Joe Renaud at George Mason University\nVersion: '+self.version+'\tDate: '+self.date+'\n')
+		self.logwrite('MuParse Constructor Called\n')
+		self.logwrite('Data to be recorded at '+self.path+'\n')
+		###
+		## Initial Website Analysis
 		self.website = website
 		self.websource = website
 		if self.website == 'onlyparse':
 			self.website = 0
-			self.log.write('No Website will be parsed, only data will be parsed\n')
+			self.logwrite('No Website will be parsed, only data will be parsed\n')
 		elif self.website == 'moa':
 			self.website = 'https://it019909.massey.ac.nz/moa/alert2014/alert.html'
-			self.log.write('MOA data to be parsed.\nWeb address to be used: '+self.website+'\n')
+			self.logwrite('MOA data to be parsed.\nWeb address to be used: '+self.website+'\n')
 		elif self.website == 'ogle':
 			self.website = 'http://ogle.astrouw.edu.pl/ogle4/ews/ews.html'
-			self.log.write('OGLE4 data to be parsed.\nWeb address to be used: '+self.website+'\n')
+			self.logwrite('OGLE4 data to be parsed.\nWeb address to be used: '+self.website+'\n')
+	def logwrite(self,string):
+		# New write command so that the log file continues to update as the
+		# program runs, via the flush command.
+		self.log.write(string)
+		self.log.flush()
+	def endparse(self):
+		self.log.close()
 	def download(self):
 		if not self.website == 0:
-			self.log.write('Initializing...\n')
-			self.log.write('Opening: ' + self.website +'\n')
+			self.logwrite('Initializing...\n')
+			self.logwrite('Opening: ' + self.website +'\n')
 			HTMLData = urllib2.urlopen(self.website)
-			self.log.write('HTML Data Saved to Memory\n')
+			self.logwrite('HTML Data Saved to Memory\n')
 			with open(self.path+'html.tmp','w') as filetmp:
 				for line in HTMLData:
 					filetmp.write(line)
 				pass
-			self.log.write('HTML Data Saved Locally\n')
+			self.logwrite('HTML Data Saved Locally\n')
 			with open(self.path+'html.tmp','r') as htmltmp:
-				self.log.write('Reading '+self.path+'html.tmp as var: htmltmp.\n')
+				self.logwrite('Reading '+self.path+'html.tmp as var: htmltmp.\n')
 				self.htmlstring = ''
 				for line in htmltmp:
 					self.htmlstring = self.htmlstring + line
 				pass
-			self.log.write('HTML data passed into super-string.\n')
+			self.logwrite('HTML data passed into super-string.\n')
 			with open(self.path+'htmlparse.tmp','w') as htmldata:
 				parser = MyHTMLParser()
 				parser.htmldatastore(htmldata)
 				parser.feed(self.htmlstring)
-				self.log.write('Superstring passed into parser object.\n')
+				self.logwrite('Superstring passed into parser object.\n')
 				pass
-		self.log.write('download method complete.\n')
+		self.logwrite('download method complete.\n')
 	def query(self):
-		self.log.write('query method called and running...\n')
+		self.logwrite('query method called and running...\n')
 		#Turn into GUI in the future
 		d1 = raw_input('Do you want to use Default variables (y/n)? ')
 		if d1 == 'n':
-			self.log.write('Non-Default valeus chosen by user\n')
+			self.logwrite('Non-Default valeus chosen by user\n')
 			lonng = input('Observatory Longitude (def:-77.305325): ')
 			lat = input('Observatory Latitude (def:38.828176): ')
 			days = input('How many days from now do you want to parse to (def:30): ')
@@ -70,7 +85,7 @@ class MuParse():
 			OnlyActive = raw_input('Only Active Events?(def:y): ')
 			OnlyFuture = raw_input('Look at only future maximums?(def:y): ')
 		else:
-			self.log.write('Default values chosen by user\n')
+			self.logwrite('Default values chosen by user\n')
 			prec = int(270) #minutes, I would keep this between 30 - 280
 			lonng = -77.305325 #degrees East
 			lat = 38.828176 #degrees North
@@ -91,7 +106,7 @@ class MuParse():
 			OnlyFuture = 1
 		else:
 			OnlyFuture = 0
-		self.log.write(stringr)
+		self.logwrite(stringr)
 		querydata = [prec,lonng,lat,days,MinMag,minALT,Act,OnlyFuture]
 		return querydata
 	def parse(self):
@@ -105,25 +120,26 @@ class MuParse():
 		OnlyActive = querydata[6]
 		OnlyFuture = querydata[7]
 		compactPrintout = 'n'
-		self.log.write('Parse Method is now running...\n')
-		self.log.write('CompactPrintout: ' + compactPrintout)
+		self.logwrite('Parse Method is now running...\n')
+		self.logwrite('CompactPrintout: ' + compactPrintout+'\n')
 		with open(self.path+'htmlparse.tmp','r') as htmldata:
-			self.log.write('Data found!\n')
+			self.logwrite('Data found!\n')
 			with open(self.path + 'ParseOutput.tmp','w') as datastore:
 				self.ParseDataFile(htmldata,datastore)
 				pass
 			pass
 		with open(self.path + 'ParseOutput.tmp','r') as datastore:
 			events = self.inputintoobject(datastore)
-			self.log.write('Events Found\n')
+			self.logwrite('Events Found\n')
 			pass
 		times = self.dateFinder('y',daysOut,precision)
-		self.log.write('Times Found\n')
-		self.log.write('events: ' + str(len(events))+'\n')
-		self.log.write('times: ' + str(len(times))+'\n')
-		self.log.write('Running through events and times\n')
+		self.logwrite('Times Found\n')
+		self.logwrite('events: ' + str(len(events))+'\n')
+		self.logwrite('times: ' + str(len(times))+'\n')
+		self.logwrite('Running through events and times\n')
 		timerr = len(times)
 		print '25% Complete'
+		self.logwrite('All major calculations complete.\nParsing over times and events: 25% complete.\n')
 		dt = float(float((100-25))/timerr)
 		perc = float(25)
 		pold = 25
@@ -137,22 +153,26 @@ class MuParse():
 				data = event.parse(ObservLong,ObservLat,time,MinMag,minALT,OnlyActive,OnlyFuture)
 				if data[0]:
 					event.print2CSV(compactPrintout,self.path,time,data[1],data[2])
-		self.log.write('Parser Finished\n')
+		self.logwrite('Parser Finished!\n')
 		print '100% Complete'
+		self.endparse()
 	def dateFinder(self,NowQ,days,precision):
+		self.logwrite('dateFinder method called.\n')
 		#days - out from now
 		#precision in minutes
 		starthourUTC = '00:00'
 		endhourUTC = '09:00'
+		self.logwrite('Start Hour (UTC): '+starthourUTC+'.\n')
+		self.logwrite('End Hour (UTC): '+endhourUTC+'.\n')
 		daysinmonthsNolp = {1:31,2:28,3:31,4:30,5:31,6:30,7:31,8:31,9:30,10:31,11:30,12:31}
 		daysinmonthslp = {1:31,2:29,3:31,4:30,5:31,6:30,7:31,8:31,9:30,10:31,11:30,12:31}
 		#Note, code does not account for leap years at this stage.
 		if NowQ == 'y':
-			ymd = self.currenttime.str_num('donly')
+			ymd = self.currentime.str_num('donly')
 			syear = ymd[0]
 			smonth = ymd[1]
 			sday = ymd[2]
-			hmns = self.currenttime.str_num('tonly')
+			hmns = self.currentime.str_num('tonly')
 			shour = hmns[0]
 			if shour >= 0 and shour <= 4:
 				if sday == 1:
@@ -195,14 +215,17 @@ class MuParse():
 				tday = tday + 1
 		else:
 			print 'Sorry, this feature is not yet implemented.'
+		self.logwrite('Times are output.\n')
 		return UTCtimes
 	def ParseDataFile(self,htmldata,datastore):
+		self.logwrite('ParseDataFile Method Called \n')
 		nextline = 0
 		nextlinego = 0
 		newitem = 0
 		newevents = 0
 		actives = 0
 		if self.websource == 'ogle':
+			self.logwrite('OGLE Called in ParseDataFile Method\n')
 			for line in htmldata:
 				if newitem == 1:
 					datastore.write('\n\n ----NEW EVENT----\n')
@@ -215,31 +238,33 @@ class MuParse():
 				elif nextlinego == 1:
 					datastore.write('LIVE!\n')
 					actives +=1
-			if line[0:9] == '::TAG: td':
-				nextline = 1;
-			elif line[0:8] == '::TAG: a':
-				nextline = 1;
-			elif line[0:10] == '::TAG: img':
-				nextlinego = 1;
-			elif line[0:9] == '::TAG: tr':
-				newitem = 1;
-			else:
-				nextline = 0;
-				nextlinego = 0;
-				newitem = 0;
+				if line[0:9] == '::TAG: td':
+					nextline = 1;
+				elif line[0:8] == '::TAG: a':
+					nextline = 1;
+				elif line[0:10] == '::TAG: img':
+					nextlinego = 1;
+				elif line[0:9] == '::TAG: tr':
+					newitem = 1;
+				else:
+					nextline = 0;
+					nextlinego = 0;
+					newitem = 0;
 		elif self.websource == 'moa':
 			print 'Not Yet Implemented'
-		self.log.write('--- '+ str(newevents)+ ' New Event(s) Found!\n')
-		self.log.write('--- ' + str(actives) + ' Active Event(s) Found!\n')
+		datastore.flush()
+		self.logwrite('--- '+ str(newevents)+ ' New Event(s) Found!\n')
+		self.logwrite('--- ' + str(actives) + ' Active Event(s) Found!\n')
 	def inputintoobject(self,data):
-		self.log.write('CSVfile made\n')
+		self.logwrite('inputintoobject method called\n')
 		lines=data.readlines()
 		events = []
 		if self.websource == 'ogle':
+			self.logwrite('OGLE-type in use.\n')
 			for i, line in enumerate(lines):
 				if line == ' ----NEW EVENT----\n':
 					if lines[i+1] == '\n':
-						log.write('bad sector found, skipped. \n')
+						self.logwrite('bad sector found, skipped. \n')
 					else:
 						if lines[i+1]=='LIVE!\n':
 							active = '1';
@@ -247,36 +272,37 @@ class MuParse():
 						else:
 							active = '0';
 							skip = 0;
-				url = lines[i+1+skip]
-				url = url[0:-1]
-				starno = lines[i+2+skip]
-				starno = starno[0:-1]
-				RA = lines[i+3+skip]
-				RA = RA[0:-1]
-				DEC = lines[i+4+skip]
-				DEC = DEC[0:-1]
-				tmaxhj = lines[i+5+skip]
-				tmaxhj = tmaxhj[0:-1]
-				tmaxut = lines[i+6+skip]
-				tmaxut = tmaxut[0:-1]
-				tau = lines[i+7+skip]
-				tau = tau[0:-1]
-				umin = lines[i+8+skip]
-				umin = umin[0:-1]
-				amax = lines[i+9+skip]
-				amax = amax[0:-1]
-				dmag = lines[i+10+skip]
-				dmag = dmag[0:-1]
-				fbl = lines[i+11+skip]
-				fbl = fbl[0:-1]
-				ibl = lines[i+12+skip]
-				ibl = ibl[0:-1]
-				io = lines[i+13+skip]
-				io = io[0:-1]
-				url = 'http://ogle.astrouw.edu.pl/ogle4/ews/'+url
-				events.append(microevent(active,url,starno,RA,DEC,tmaxhj,tmaxut,tau,umin,amax,dmag,fbl,ibl,io))
+						url = lines[i+1+skip]
+						url = url[0:-1]
+						starno = lines[i+2+skip]
+						starno = starno[0:-1]
+						RA = lines[i+3+skip]
+						RA = RA[0:-1]
+						DEC = lines[i+4+skip]
+						DEC = DEC[0:-1]
+						tmaxhj = lines[i+5+skip]
+						tmaxhj = tmaxhj[0:-1]
+						tmaxut = lines[i+6+skip]
+						tmaxut = tmaxut[0:-1]
+						tau = lines[i+7+skip]
+						tau = tau[0:-1]
+						umin = lines[i+8+skip]
+						umin = umin[0:-1]
+						amax = lines[i+9+skip]
+						amax = amax[0:-1]
+						dmag = lines[i+10+skip]
+						dmag = dmag[0:-1]
+						fbl = lines[i+11+skip]
+						fbl = fbl[0:-1]
+						ibl = lines[i+12+skip]
+						ibl = ibl[0:-1]
+						io = lines[i+13+skip]
+						io = io[0:-1]
+						url = 'http://ogle.astrouw.edu.pl/ogle4/ews/'+url
+						events.append(microevent(active,url,starno,RA,DEC,tmaxhj,tmaxut,tau,umin,amax,dmag,fbl,ibl,io))
 		elif self.websource == 'moa':
 			print 'not implemented yet'
+		self.logwrite('events to be output.\n')
 		return events
 
 class microevent:
@@ -368,7 +394,7 @@ class microevent:
 		#OnlyActive and OnlyFuture should be 1 for yes, 0 for no
 		UTC = astroTimeObject(utc)
 		if OnlyFuture == 1:
-			currentJD = UTC.days2J2000('jd')
+			currentJD = UTC.days2J2000()
 			FutureQuery = self.parseFuture(currentJD)
 		else:
 			FutureQuery = True
@@ -464,7 +490,7 @@ class microevent:
 			Azmu = A
 		else:
 			Azmu = 360 - A
-			Data = [Alt,Azmu]
+		Data = [Alt,Azmu]
 		return Data
 	def LST_finder(self,d,Ut,lonng):
 		# Based upon the number of days from the epoch J2000
@@ -583,7 +609,7 @@ class astroTimeObject():
 				s = '0' + str(s)
 			else:
 				s = str(s)
-			output = m+d+y+'-'+h+mn+s
+			output = str(m)+str(d)+str(y)+'-'+str(h)+str(mn)+str(s)
 		return output
 	def days2J2000(self):
 		#input is a datetime object in UTC
@@ -606,7 +632,6 @@ class astroTimeObject():
 class MyHTMLParser(HTMLParser):
 	def htmldatastore(self,htmldata):
 		self.htmldataholder = htmldata
-		super(MyHTMLParser,self).__init__()
 	def handle_data(self, data):
 		if len(data) > 1:
 			self.htmldataholder.write('::DATA: ' + data + '\n')
