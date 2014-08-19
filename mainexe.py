@@ -1,14 +1,9 @@
 # -*- coding: utf-8 -*-
 from HTMLParser import HTMLParser
 from numpy import sin,arcsin,cos,pi,arccos
-from dateutil import tz
-import os,urllib2,datetime,dropbox,webbrowser,Tkinter
+import os,urllib2,datetime
 
 class MuParse():
-	def __init(self):
-		self.version = '1.8.7p'
-
-class MuParser():
 	def __init__(self,website,**optional):
 		self.version = '1.8.3p'
 		self.date = '8-12-14'
@@ -19,7 +14,7 @@ class MuParser():
 		elif ('filepath' in optional):
 			self.path = optional['filepath']
 		else:
-			self.path = 'C:/MuParse/'+ 'Run_' + self.currentime.str_num('s2') + '/'
+			self.path = 'C:/MicroLensParse/'+ 'Run_' + self.currentime.str_num('s2') + '/'
 		###
 		## Create Folder
 		if not os.path.exists(self.path):
@@ -92,12 +87,12 @@ class MuParser():
 			OnlyFuture = raw_input('Look at only future maximums?(def:y): ')
 		else:
 			self.logwrite('Default values chosen by user\n')
-			prec = int(30) #minutes, I would keep this between 30 - 280
+			prec = int(270) #minutes, I would keep this between 30 - 280
 			lonng = -77.305325 #degrees East
 			lat = 38.828176 #degrees North
-			days = 30
-			MinMag = 14 #Minimum Magnitude to detect
-			minALT = 18 #Degrees above the horizon
+			days = 60
+			MinMag = 17 #Minimum Magnitude to detect
+			minALT = 20 #Degrees above the horizon
 			OnlyActive = 'y' #Look for only Active Events
 			OnlyFuture = 'y' #Only look at future maximums in the events
 		stringr = 'Values:\n\tObservatory Longitude: '+str(lonng)+'\
@@ -166,26 +161,18 @@ class MuParser():
 		self.logwrite('dateFinder method called.\n')
 		#days - out from now
 		#precision in minutes
-		starthourUTC = '23:00'
-		endhourUTC = '04:30'
-		shour = int(starthourUTC[0:2])
-		smin = int(starthourUTC[3:len(starthourUTC)])
-		ehour = int(endhourUTC[0:2])
-		emin = int(endhourUTC[3:len(endhourUTC)])
-		self.logwrite('Start UTC: ' + starthourUTC + '\n')
-		self.logwrite('End UTC: ' + endhourUTC + '\n')
+		starthourUTC = '00:00'
+		endhourUTC = '09:00'
+		self.logwrite('Start Hour (UTC): '+starthourUTC+'.\n')
+		self.logwrite('End Hour (UTC): '+endhourUTC+'.\n')
 		daysinmonthsNolp = {1:31,2:28,3:31,4:30,5:31,6:30,7:31,8:31,9:30,10:31,11:30,12:31}
-		daysinmonthslp = daysinmonthsNolp
-		daysinmonthslp[2] = 29
+		daysinmonthslp = {1:31,2:29,3:31,4:30,5:31,6:30,7:31,8:31,9:30,10:31,11:30,12:31}
 		#Note, code does not account for leap years at this stage.
 		if NowQ == 'y':
 			ymd = self.currentime.str_num('donly')
 			syear = ymd[0]
 			smonth = ymd[1]
-			if shour > 10:
-				sday = ymd[2]
-			else:
-				sday = ymd[2]
+			sday = ymd[2]
 			hmns = self.currentime.str_num('tonly')
 			shour = hmns[0]
 			if shour >= 0 and shour <= 4:
@@ -201,16 +188,10 @@ class MuParser():
 						sday = daysinmonthsNolp[smonth]
 				else:
 					sday = sday - 1
-			if ehour > 10:
-				if ehour >= shour:
-					if emin >= smin:
-						eday = sday
-					else:
-						eday = sday + 1
-				else:
-					eday = sday + 1
-			else:
-				eday = sday + 1
+			shour = int(starthourUTC[0:2])
+			smin = int(starthourUTC[3:len(starthourUTC)])
+			ehour = int(endhourUTC[0:2])
+			emin = int(endhourUTC[3:len(endhourUTC)])
 			thour = shour
 			tmin = smin
 			tday = sday
@@ -222,19 +203,16 @@ class MuParser():
 				tmin = smin
 				if tday > daysinmonthsNolp[tmonth]:
 					tday = tday - daysinmonthsNolp[tmonth]
-					tmonth +=1
+					tmonth = tmonth + 1
 					if tmonth > 12:
 						tmonth = 1
-						tyear += 1
-				while thour < ehour or tmin < emin or tday < eday:
+						tyear = tyear + 1
+				while thour < ehour or tmin < emin:
 					UTCtimes.append(datetime.datetime(tyear,tmonth,tday,thour,tmin))
 					tmin = tmin+precision
-					while tmin >= 60:
-						thour +=1
-						tmin -= 60
-					while thour >= 24:
-						tday +=1
-						thour -= 24
+					while tmin > 59:
+						thour = thour + 1
+						tmin = tmin - 60
 				tday = tday + 1
 		else:
 			print 'Sorry, this feature is not yet implemented.'
@@ -321,18 +299,17 @@ class MuParser():
 						ibl = ibl[0:-1]
 						io = lines[i+13+skip]
 						io = io[0:-1]
-						ider = url
 						url = 'http://ogle.astrouw.edu.pl/ogle4/ews/'+url
-						events.append(microevent(ider,active,url,starno,RA,DEC,tmaxhj,tmaxut,tau,umin,amax,dmag,fbl,ibl,io))
+						events.append(microevent(active,url,starno,RA,DEC,tmaxhj,tmaxut,tau,umin,amax,dmag,fbl,ibl,io))
 		elif self.websource == 'moa':
 			print 'not implemented yet'
 		self.logwrite('events to be output.\n')
 		return events
 
 class microevent:
-	version = '0.5.2p'
-	versionDate = '8-15-2014'
-	def __init__(self,ider,a,u,s,r,d,tmj,tmu,tu,umn,am,dma,fbl,ibl,io):
+	version = '0.4.5p'
+	versionDate = '8-11-2014'
+	def __init__(self,a,u,s,r,d,tmj,tmu,tu,umn,am,dma,fbl,ibl,io):
 		self.active = a
 		self.html = u
 		self.starno = s
@@ -347,7 +324,6 @@ class microevent:
 		self.f_bl = fbl
 		self.i_bl = ibl
 		self.i_o = io
-		self.gmuid = 'GM-'+ider
 	def changeValue(self,string,value):
 		#Possible Input Strings:
 		#	==active,html,field,starno,ra,dec,t_max_hjd,t_max_ut,tau,a_max,d_mag,f_bl,i_bl,i_o
@@ -432,9 +408,9 @@ class microevent:
 	def print2CSV(self,compact,filepath,time,alt,azmu):
 		time = astroTimeObject(time)
 		if compact == 'y':
-			stringout = self.gmuid+','+self.active+','+time.str_num('s_estedt')+','+str(alt)+','+str(azmu)+','+self.html+','+self.ra+','+self.dec+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.d_mag+','+self.i_bl+','+self.i_o+'\n'
+			stringout = self.active+','+time.str_num('s')+','+str(alt)+','+str(azmu)+','+self.html+','+self.ra+','+self.dec+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.d_mag+','+self.i_bl+','+self.i_o+'\n'
 		else:
-			stringout = self.gmuid+','+self.active+','+time.str_num('s_estedt')+','+str(alt)+','+str(azmu)+','+self.html+','+self.starno+','+self.ra+','+self.dec+','+self.t_max_hjd+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.a_max+','+self.d_mag+','+self.f_bl+','+self.i_bl+','+self.i_o+'\n'
+			stringout = self.active+','+time.str_num('s')+','+str(alt)+','+str(azmu)+','+self.html+','+self.starno+','+self.ra+','+self.dec+','+self.t_max_hjd+','+self.t_max_ut+','+self.tau+','+self.u_min+','+self.a_max+','+self.d_mag+','+self.f_bl+','+self.i_bl+','+self.i_o+'\n'
 		if os.path.isfile(filepath+'output.csv'):
 			with open(filepath+'output.csv','a') as csv:
 				csv.write(stringout)
@@ -442,10 +418,10 @@ class microevent:
 		else:
 			with open(filepath+'output.csv','w') as csv:
 				if compact == 'y':
-					csv.write('GMU_ID,Active,Date-Time(USEAST),Alt,Azmu,HTML,RA(J2000),DEC(J2000),T_MAX(UT),tau,U_min,D_mag,f_bl,I_bl,I_o\n')
+					csv.write('Active,Date-Time(UTC),Alt,Azmu,HTML,RA(J2000),DEC(J2000),T_MAX(UT),tau,U_min,D_mag,f_bl,I_bl,I_o\n')
 					csv.write(stringout)
 				else:
-					csv.write('GMU_ID,Active,Date-Time(USEAST),Alt,Azmu,HTML,StarNo,RA(J2000),DEC(J2000),T_MAX(HJD),T_MAX(UT),tau,U_min,A_MAX,D_mag,f_bl,I_bl,I_o\n')
+					csv.write('Active,Date-Time(UTC),Alt,Azmu,HTML,StarNo,RA(J2000),DEC(J2000),T_MAX(HJD),T_MAX(UT),tau,U_min,A_MAX,D_mag,f_bl,I_bl,I_o\n')
 					csv.write(stringout)
 				pass
 	def DECtoDeg(self,radQ,**DEC):
@@ -560,26 +536,10 @@ class microevent:
 		HA = HAtmp
 		return HA
 
-####Main Files####
-#==============================================================================
-# Run MainGrab() if you want to run the parser from scratch, downloading new
-# files.
-#
-# Run OnlyParse if you do not want to download files. However, follow these instructions:
-#  - First make a folder with the data you want to parse saved as 'htmlparse.tmp'
-#  - Record the file path to the main folder holing the htmlparse.tmp, this is
-#  - where all data will be saved.
-#  - Run:: 'log = logMaker(path)' where path is the aforementioned path
-#  - Now run:: 'OnlyParse(path,log)' where path is as mentioned, and log is the
-#  - variable holding the logMaker object.
-#==============================================================================
+
 class astroTimeObject():
 	def __init__(self,UTCDateTimeObject):
 		self.utc=UTCDateTimeObject
-		from_zone = tz.gettz('UTC')
-		to_zone = tz.gettz('America/New_York')
-		UTC = self.utc.replace(tzinfo=from_zone)
-		self.edst = UTC.astimezone(to_zone)
 	def str_num(self,outputType):
 		y = self.utc.year
 		m = self.utc.month
@@ -589,8 +549,6 @@ class astroTimeObject():
 		s = self.utc.second
 		if outputType == 's':
 			output = str(m)+'-'+str(d)+'-'+str(y)+' '+str(h)+':'+str(mn)+':'+str(s)
-		elif outputType =='s_estedt':
-			output = str(self.edst.month)+'-'+str(self.edst.day)+'-'+str(self.edst.year)+' '+str(self.edst.hour)+':'+str(self.edst.minute)+':'+str(self.edst.second)
 		elif outputType == 'ymdx':
 			mn = float(mn + s/60)
 			h = float(h + m/60)
@@ -677,267 +635,11 @@ class MyHTMLParser(HTMLParser):
 				st2 = attr[1]
 				self.htmldataholder.write('\t' + st1 + ' = ' + st2 + '\n')
 
-class DropboxDB():
-	#dependencies: import dropbox (install sdk from their site) and webbrowser
 
-	def __init__(self,**additional):
-		self.localpath = 'C:/MuParse/'
-		if ('log' in additional):
-			self.logwrite = additional['log']
-		else:
-			my = MuParser('ogle')
-			self.logwrite = my.logwrite
-		self.version = '0.1.0n'
-		self.appkey = '2zrff7pqdxg9mbc'
-		self.appsecret = 'mixs1tiavqpqw5v'
-		self.flow = dropbox.client.DropboxOAuth2FlowNoRedirect(self.appkey, self.appsecret)
-		self.authorize_url()
-	def authorize_url(self):
-		url = self.flow.start()
-		webbrowser.open(url, new=1, autoraise=True)
-		code = raw_input("Enter the authorization code here: ").strip()
-		access_token, self.user_id = self.flow.finish(code)
-		self.client = dropbox.client.DropboxClient(access_token)
-	def upload(self,filepath,filename,rev):
-		filename = '/gexobase/'+filename
-		with open(filepath,'rb') as f:
-			response = self.client.put_file(filename, f,overwrite=True)
-			self.logwrite('uploaded '+filename+', response:\n')
-			for item in response:
-				self.logwrite('\t'+str(item) + ':'+str(response[item]))
-			pass
-	def download(self,filedownloadpath,filename):
-		filename = '/gexobase/'+filename
-		f, metadata = self.client.get_file_and_metadata(filename)
-		self.logwrite(filename+' downloaded to: ' + filedownloadpath+'\n')
-		with open(filedownloadpath,'wb') as out:
-			out.write(f.read())
-			out.close()
-			self.logwrite(filename+' downloaded to: ' + filedownloadpath+'\n')
-			self.logwrite('Metadata: \n')
-			for item in metadata:
-				self.logwrite('\t'+str(item) + ':'+str(metadata[item]))
-			revision = metadata['revision']
-			pass
-			return revision
-	def CreateTBL(self,localpath,filename,tablename):
-		with open(localpath + filename +'.csv','w') as localfile:
-			localfile.write(tablename+'\n')
-			pass
-		self.upload(localpath,filename+'.csv',1)
-	def AppendLineTBL(self,line,tbl,up,new):
-		if new == True:
-			self.download(self.localpath,tbl+'.csv')
-		with open(self.localpath+tbl+'.csv','a') as filetmp:
-			filetmp.write(line+'\n')
-			pass
-		if up == True:
-			self.upload(self.localpath,tbl+'.csv')
-	def ReadTBL(self,tbl,new):
-		if new == True:
-			self.download(self.localpath,tbl+'.csv')
-
-	def parse_GMUID_DB(self):
-		filename = 'GMUID.csv'
-		filelocalpath = self.localpath + 'temp/'
-		if not os.path.exists(filelocalpath):
-			os.makedirs(filelocalpath)
-		filepath = filelocalpath + filename
-		rev = self.download(filepath,filename)
-		#rev = rev + 1
-		print rev
-		with open(filepath,'a') as DBfile:
-			DBfile.write('hello,')
-			pass
-		self.upload(filepath,filename,rev)
-class Table():
-	def __init__(self,table,**othervars):
-		self.version = '0.2.0'
-		if 'header_row' in othervars:
-			self.headrow = othervars['header_row']
-		else:
-			self.headrow = 0
-		if 'firstdata_row' in othervars:
-			self.datarow = othervars['firstdata_row']
-		else:
-			self.datarow = 1
-		if 'delim' in othervars:
-			self.delim = othervars['delim']
-		else:
-			self.delim = ','
-		self.pl = 0
-		self.inputparse(table)
-		self.findHeaders()
-		self.findData()
-	def inputparse(self,inpt):
-		if type(inpt)==type('test'):
-			if os.path.exists(inpt):
-				self.LoadfromFile(inpt)
-			elif os.access(os.path.dirname(inpt), os.W_OK):
-				raise Exception('No File Found at Path')
-			else:
-				self.LoadfromStr(inpt)
-		elif type(inpt)==type(['test','test']):
-			self.LoadfromList(inpt)
-	def LoadfromFile(self,filepath):
-		with open(filepath,'r') as filetmp:
-			rows = list(filetmp)
-			pass
-		rownew = []
-		for i,item in enumerate(rows):
-			if item[-1]=='\n':
-				rownew.append(item[0:-1])
-			else:
-				rownew.append(item)
-		self.rows = rownew
-	def LoadfromStr(self,string):
-		newlines = self.findstr(string,'\n')
-		rows = []
-		for i in newlines:
-			if i == 0:
-				rows.append(string[0:newlines[0]])
-			elif i == len(newlines):
-				rows.append(string[newlines[i]+1:-1])
-			else:
-				rows.append(string[newlines[i]+1:newlines[i+1]])
-		rownew = []
-		for i,item in enumerate(rows):
-			if item[-1]=='\n':
-				rownew.append(item[0:-1])
-			else:
-				rownew.append(item)
-		self.rows = rownew
-	def LoadfromList(self,listr):
-		rownew = []
-		for i,item in enumerate(listr):
-			print listr
-			print item
-			if item[-1]=='\n':
-				rownew.append(item[0:-1])
-			else:
-				rownew.append(item)
-		self.rows = rownew
-	#### String and Row Tools ####
-	def findstr(self,s,c):
-		locations = []
-		for i,char in enumerate(s):
-			if char == c:
-				locations.append(i)
-		return locations
-	def findRowValues(self,Row):
-		Values = []
-		DelimLocal = self.findstr(Row,self.delim)
-		l2 = len(DelimLocal)
-		for i,local in enumerate(DelimLocal):
-			if i == 0:
-				tmp = Row[0:local]
-			else:
-				tmp = Row[DelimLocal[(i-1)]+1:local]
-			if not tmp:
-				tmp = None
-			Values.append(tmp)
-		if Row[-1]=='\n':
-			tmp = Row[DelimLocal[l2-1]+1:-1]
-		else:
-			tmp = Row[DelimLocal[l2-1]+1:len(Row)]
-		if not tmp:
-			tmp = None
-		Values.append(tmp)
-		return Values
-	#### Table Tools ####
-	def findHeaders(self):
-		self.headers = self.findRowValues(self.rows[self.headrow])
-		self.headers.append('Tbl_ID')
-		self.datafieldNum = len(self.headers)
-		for item in self.headers:
-			if len(str(item))>self.pl:
-				self.pl = len(item)
-	def findData(self):
-		data = []
-		for j,row in enumerate(self.rows[self.headrow+1:len(self.rows)]):
-			datainrow = self.findRowValues(row)
-			rowdictionary = {}
-			for i,value in enumerate(datainrow):
-				rowdictionary[self.headers[i]] = value
-				if len(str(value)) > self.pl:
-					self.pl = len(value)
-			rowdictionary['Tbl_ID']=j
-			data.append(rowdictionary)
-		self.data = data
-	def searchhead(self,headerString):
-		out = []
-		if type(headerString)==type(['test','test']):
-			for i,dataitem in enumerate(self.data):
-				item = []
-				for header in headerString:
-					item.append(dataitem[header])
-				item.append(dataitem['Tbl_ID'])
-				out.append(item)
-		elif type(headerString) == type('test'):
-			for i,dataitem in enumerate(self.data):
-				item = []
-				item.append(dataitem[headerString])
-				item.append(dataitem['Tbl_ID'])
-				out.append(item)
-		else:
-			raise Exception('Invalid input type')
-		return out
-	def searchdata(self,**keyword):
-		#For numbers, you can enter a list [value,pluserror,minuserror], [value,error]
-		#or just the value and no list, in which case error will be treated as 0
-		results = []
-		for key in keyword:
-			if not(key in self.headers):
-				raise Exception('Keyword not found in headers')
-			else:
-				for data in self.data:
-					if type(keyword[key])==type('string'):
-						if data[key] == keyword[key]:
-							if not data['Tbl_ID'] in results:
-								results.append(data['Tbl_ID'])
-					elif type(keyword[key])==type(1) or type(keyword[key])==type(1.0):
-						if float(data[key]) == float(keyword[key]):
-							if not (data['Tbl_ID'] in results):
-								results.append(data['Tbl_ID'])
-					elif type(keyword[key])==type([1,1]):
-						values = keyword[key]
-						if len(values) == 2:
-							value = values[0]
-							valueplserror = values[1]
-							valueminserror = valueplserror
-						elif len(values) == 3:
-							value = values [0]
-							valueplserror = values[1]
-							valueminserror = values[2]
-						else:
-							raise Exception('Too many or Too Few list items')
-						datavalue = data[key]
-						diff = float(datavalue) - float(value)
-						if diff < valueplserror and diff > (-1*valueminserror):
-							if not data['Tbl_ID'] in results:
-								results.append(data['Tbl_ID'])
-		result = []
-		for ID in results:
-			result.append(self.data[ID])
-		return result
-	def disp(self):
-		str1 = ''
-		for i,item in enumerate(self.headers):
-			if i == len(self.headers):
-				str1 = str1 + str(item)
-			else:
-				spnum = self.pl+3 - (len(str(item))+2)
-				str1 = str1 + str(item)+':' + ' '*spnum
-		print str1 + '\n'
-		for i,item in enumerate(self.data):
-			str2 = ''
-			for j in range(0,self.datafieldNum):
-				if j == self.datafieldNum:
-					str2 = str2 + str(item[self.headers[j]])
-				else:
-					spnum = self.pl+3 - (len(str(item[self.headers[j]]))+1)
-					str2 = str2 + str(item[self.headers[j]]) + ' '*spnum
-			print str2 + '\n'
-
-
-
+##EXE ONLY##
+exeversion = '0.1.0p'
+tstr = raw_input('website: ')
+T=MuParse(tstr)
+T.download()
+T.parse()
+############
