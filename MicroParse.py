@@ -5,8 +5,7 @@ Created on Mon Jul 28 21:08:13 2014
 """
 from html.parser import HTMLParser
 from numpy import sin,arcsin,cos,pi,arccos
-import os,urllib,datetime
-vers = '1.0.5p'
+import os,urllib.request,datetime
 ####Main Files####
 #==============================================================================
 # Run MainGrab() if you want to run the parser from scratch, downloading new
@@ -20,6 +19,216 @@ vers = '1.0.5p'
 #  - Now run:: 'OnlyParse(path,log)' where path is as mentioned, and log is the
 #  - variable holding the logMaker object.
 #==============================================================================
+def MainGrab():
+    from html.parser import HTMLParser
+    from numpy import sin,arcsin,cos,pi,arccos
+    import os,urllib.request,datetime
+    vers = '1.0.7'
+    lmo = '8-7-15'
+    # Create Workind Directory with timestamp.
+    Working_Dir = MAKE_WORKING_DIR('MicroParseRun_')
+    #MakeLog
+    log = log_class(Working_Dir,'MicroParse_')
+    log('Exoplanet Micro Lens Parsing Log\nVersion '+vers+', by Joe Renaud. Last modified on: '+lmo)
+    Website = 'http://ogle.astrouw.edu.pl/ogle4/ews/ews.html'
+    log('Initializing...')
+    log('Opening: ' + Website,True,True)
+    kstr = DownloadHTMLtext(Website,log,Working_Dir)
+    global htmldata
+    with open(os.path.join(Working_Dir,'htmlparse.tmp'),'w') as htmldata:
+        parser = MyHTMLParser()
+        log('Superstring passed into parser function')
+        parser.feed(kstr)
+        pass
+    log('OnlyParse Function called')
+    log('MainGrab Function Finished')
+    OnlyParse(Working_Dir,log)
+
+def OnlyParse(CurrentPath,log,**kwargs):
+    import time,webbrowser
+    Parameters = queryUser()
+    compactPrintout = kwargs.get('compact_print',False)
+    log('OnlyParse function is now running...')
+    global htmldata
+    global datastore
+    with open(os.path.join(CurrentPath,'htmlparse.tmp'),'r') as htmldata:
+        log('Data found!')
+        with open(os.path.join(CurrentPath,'ParseOutput.tmp'),'w') as datastore:
+            ParseDataFile(htmldata,datastore,log,CurrentPath)
+            pass
+        pass
+    with open(os.path.join(CurrentPath,'ParseOutput.tmp'),'r') as datastore:
+        events = inputintoobject(datastore,log)
+        log('Events Found')
+        pass
+    times = dateFinder('y',Parameters['days_out'],Parameters['minute_separation'])
+    log('Times Found',True,True)
+    log('Running through events and times')
+    log('events: ' + str(len(events)))
+    log('times: ' + str(len(times)))
+    Loop_Length = len(times)
+    progress = 0.25
+    update_progress(progress)
+    dt = float((1-progress)/Loop_Length)
+    loop_pre_time = time.time()
+    with open(os.path.join(CurrentPath,'output.csv'),'w') as csvfile:
+        if compactPrintout:
+            csvfile.write('Active,Name,Date-Time(UTC),Alt,Azmu,HTML,RA(J2000),DEC(J2000),T_MAX(UT),tau,U_min,D_mag,f_bl,I_bl,I_o\n')
+        else:
+            csvfile.write('Active,Name,Date-Time(UTC),Alt,Azmu,HTML,StarNo,RA(J2000),DEC(J2000),T_MAX(HJD),T_MAX(UT),tau,U_min,A_MAX,D_mag,f_bl,I_bl,I_o\n')
+        for time_step in times:
+            progress += dt
+            update_progress(progress)
+            for event in events:
+                data = event.parse(Parameters['longitude'],Parameters['latitude'],time_step,Parameters['minimum_magnitude'],Parameters['minimum_altitude'],Parameters['only_active'],Parameters['only_future'])
+                if data[0]:
+                    event.print2CSV(csvfile,compactPrintout,time_step,data[1],data[2])
+        pass
+    log('Parser Finished! Total Loop Time: ' + str(round(time.time()-loop_pre_time,1)))
+    print('\n')
+    log_path = log.full_path
+    log.__del__()
+    print('-->>MicroParse Done<<--')
+    openlog = clean_string(input('Would you like to open the log file (Y/N)? '))
+    if openlog in ['y','yes','ye']:
+        webbrowser.open(log_path)
+    input('MicroParse Completed! Output csv file can be found in the run folder.\nPlease hit enter to close.')
+
+def ParseDataFile(htmldata,datastore,log,Path):
+    nextline = 0
+    nextlinego = 0
+    newitem = 0
+    newevents = 0
+    actives = 0
+    for line in htmldata:
+        if newitem == 1:
+            datastore.write('\n\n ----NEW EVENT----\n')
+            newevents += 1
+        elif nextline ==1:
+            strr = line[7:];
+            if not strr == '= RIGHT\n':
+                strr = strr[1:]
+                datastore.write(strr)
+        elif nextlinego == 1:
+            datastore.write('LIVE!----------------\n')
+            actives +=1
+
+        if line[0:9] == '::TAG: td':
+            nextline = 1;
+        elif line[0:8] == '::TAG: a':
+            nextline = 1;
+        elif line[0:10] == '::TAG: img':
+            nextlinego = 1;
+        elif line[0:9] == '::TAG: tr':
+            newitem = 1;
+        else:
+            nextline = 0;
+            nextlinego = 0;
+            newitem = 0;
+    log('    '+ str(newevents)+ ' New Event(s) Found!')
+    log('    ' + str(actives) + ' Active Event(s) Found!')
+
+def inputintoobject(data,log):
+    import pdb
+    log('inputintoobject func called.',True,True)
+    log('CSVfile made')
+    log('    --- PARSING INFORMATION ---')
+    lines=data.readlines()
+    events = []
+    for i, line in enumerate(lines):
+        if line == ' ----NEW EVENT----\n':
+            if lines[i+1] == '\n':
+                log.write('   Bad sector found, skipped: Line-'+str(i)+' = '+line)
+            else:
+                if lines[i+1]=='LIVE!----------------\n':
+                    active = True;
+                    skip = 1;
+                else:
+                    active = False;
+                    skip = 0;
+                url = lines[i+1+skip]
+                url = url[0:-1]
+                starno = lines[i+2+skip]
+                starno = starno[0:-1]
+                RA = lines[i+3+skip]
+                RA = RA[0:-1]
+                DEC = lines[i+4+skip]
+                DEC = DEC[0:-1]
+                tmaxhj = lines[i+5+skip]
+                tmaxhj = tmaxhj[0:-1]
+                tmaxut = lines[i+6+skip]
+                tmaxut = tmaxut[0:-1]
+                tau = lines[i+7+skip]
+                tau = tau[0:-1]
+                umin = lines[i+8+skip]
+                umin = umin[0:-1]
+                amax = lines[i+9+skip]
+                amax = amax[0:-1]
+                dmag = lines[i+10+skip]
+                dmag = dmag[0:-1]
+                fbl = lines[i+11+skip]
+                fbl = fbl[0:-1]
+                ibl = lines[i+12+skip]
+                ibl = ibl[0:-1]
+                io = lines[i+13+skip]
+                io = io[0:-1]
+                url = 'http://ogle.astrouw.edu.pl/ogle4/ews/'+url
+                events.append(microevent(active,url,starno,RA,DEC,tmaxhj,tmaxut,tau,umin,amax,dmag,fbl,ibl,io))
+    log('    --- PARSING END ---')
+    return events
+
+def dateFinder(NowQ,days,precision):
+    #days - out from now
+    #precision in minutes
+    starthourUTC = '00:00'
+    endhourUTC = '09:00'
+    daysinmonths = {1:31,2:28,3:31,4:30,5:31,6:30,7:31,8:31,9:30,10:31,11:30,12:31}
+    #Note, code does not account for leap years at this stage.
+    if NowQ == 'y':
+        now = datetime.datetime.utcnow()
+        syear = now.year
+        smonth = now.month
+        sday = now.day
+        if now.hour >= 0 and now.hour <= 4:
+            if sday == 1:
+                if smonth == 1:
+                    syear = syear -1
+                    smonth = 12
+                else:
+                    smonth = smonth - 1
+                sday = daysinmonths[smonth]
+            else:
+                sday = sday - 1
+        shour = int(starthourUTC[0:2])
+        smin = int(starthourUTC[3:len(starthourUTC)])
+        ehour = int(endhourUTC[0:2])
+        emin = int(endhourUTC[3:len(endhourUTC)])
+        thour = shour
+        tmin = smin
+        tday = sday
+        tmonth = smonth
+        tyear = syear
+        UTCtimes = []
+        for i in range(1,days):
+            thour = shour
+            tmin = smin
+            if tday > daysinmonths[tmonth]:
+                tday = tday - daysinmonths[tmonth]
+                tmonth = tmonth + 1
+                if tmonth > 12:
+                    tmonth = 1
+                    tyear = tyear + 1
+            while thour < ehour or tmin < emin:
+                UTCtimes.append(datetime.datetime(tyear,tmonth,tday,thour,tmin))
+                tmin = tmin+precision
+                while tmin > 59:
+                    thour = thour + 1
+                    tmin = tmin - 60
+            tday = tday + 1
+    else:
+        print('Sorry, this feature is not yet implemented.') # TODO
+    return UTCtimes
+    
 class microevent:
     version = '0.4.5p'
     versionDate = '8-11-2014'
@@ -39,7 +248,7 @@ class microevent:
         self.f_bl = fbl
         self.i_bl = ibl
         self.i_o = io
-        
+        self.name = self.html.split('/')[-1].split('.')[0].upper()
     def changeValue(self,string,value):
         #Possible Input Strings:
         #	==active,html,field,starno,ra,dec,t_max_hjd,t_max_ut,tau,a_max,d_mag,f_bl,i_bl,i_o
@@ -69,8 +278,7 @@ class microevent:
             IsVis = False
         else:
             IsVis = True
-        VisibData = (IsVis,alt,azmu)
-        return VisibData
+        return (IsVis,alt,azmu)
         
     def parseMinimumMag(self,MinMag):
         if float(self.i_o)< MinMag:
@@ -116,25 +324,13 @@ class microevent:
         if completed and not rejected:
             return VisibData
         
-    def print2CSV(self,compact,filepath,time,alt,azmu):
-        if os.path.isfile(filepath+'output.csv'):
-            with open(os.path.join(filepath,'output.csv'),'a') as csv:
-                csv.write(self.__str__(time,alt,azmu,True))
-                pass
-        else:
-            with open(os.path.join(filepath,'output.csv'),'w') as csv:
-                if compact:
-                    csv.write('Active,Date-Time(UTC),Alt,Azmu,HTML,RA(J2000),DEC(J2000),T_MAX(UT),tau,U_min,D_mag,f_bl,I_bl,I_o\n')
-                    csv.write(self.__str__(time,alt,azmu,True))
-                else:
-                    csv.write('Active,Date-Time(UTC),Alt,Azmu,HTML,StarNo,RA(J2000),DEC(J2000),T_MAX(HJD),T_MAX(UT),tau,U_min,A_MAX,D_mag,f_bl,I_bl,I_o\n')
-                    csv.write(self.__str__(time,alt,azmu,False))
-                pass
+    def print2CSV(self,csvfile,compact,time,alt,azmu):
+        csvfile.write(self.__str__(time,alt,azmu,compact))
     def __str__(self,time,alt,azmu,compact=False):
         if compact:
-            return str(self.active)+','+datetime2String_Num(time,'s')+','+str(alt)+','+str(azmu)+','+str(self.html)+','+str(self.ra)+','+str(self.dec)+','+str(self.t_max_ut)+','+str(self.tau)+','+str(self.u_min)+','+str(self.d_mag)+','+str(self.i_bl)+','+str(self.i_o)+'\n'
+            return str(self.active)+','+self.name+','+datetime2String_Num(time,'s')+','+str(alt)+','+str(azmu)+','+str(self.html)+','+str(self.ra)+','+str(self.dec)+','+str(self.t_max_ut)+','+str(self.tau)+','+str(self.u_min)+','+str(self.d_mag)+','+str(self.i_bl)+','+str(self.i_o)+'\n'
         else:
-            return str(self.active)+','+datetime2String_Num(time,'s')+','+str(alt)+','+str(azmu)+','+str(self.html)+','+str(self.starno)+','+str(self.ra)+','+str(self.dec)+','+str(self.t_max_hjd)+','+str(self.t_max_ut)+','+str(self.tau)+','+str(self.u_min)+','+str(self.a_max)+','+str(self.d_mag)+','+str(self.f_bl)+','+str(self.i_bl)+','+str(self.i_o)+'\n'
+            return str(self.active)+','+self.name+','+datetime2String_Num(time,'s')+','+str(alt)+','+str(azmu)+','+str(self.html)+','+str(self.starno)+','+str(self.ra)+','+str(self.dec)+','+str(self.t_max_hjd)+','+str(self.t_max_ut)+','+str(self.tau)+','+str(self.u_min)+','+str(self.a_max)+','+str(self.d_mag)+','+str(self.f_bl)+','+str(self.i_bl)+','+str(self.i_o)+'\n'
 
                 
 class MyHTMLParser(HTMLParser):
@@ -186,7 +382,7 @@ class log_class():
         ''' Write an input line(s) to the log file. '''
         if include_timestamp:
             Start_Time = self.time.time()
-            Current_Time_Str = self.datetime.fromtimestamp(Start_Time).strftime('%H%M%S') + ': '
+            Current_Time_Str = 'TS' + self.datetime.fromtimestamp(Start_Time).strftime('%H:%M::%S') + '- '
         else:
             Current_Time_Str = ''
         if auto_line:
@@ -250,70 +446,7 @@ def MAKE_WORKING_DIR(Dir_Name,Time_Stamp=True,Use_Cwd_Asbase=True,**kwargs):
     if not os.path.exists(Output_Directory):
         os.makedirs(Output_Directory)
     return Output_Directory
-        
-def MainGrab():
-    vers = '1.0.5'
-    lmo = '7-24-15'
-    # Create Workind Directory with timestamp.
-    Working_Dir = MAKE_WORKING_DIR('MicroParseRun_')
-    #MakeLog
-    log = log_class(Working_Dir,'MicroParse_')
-    log('Exoplanet Micro Lens Parsing Log\nVersion '+vers+', by Joe Renaud. Last modified on: '+lmo)
-    Website = 'http://ogle.astrouw.edu.pl/ogle4/ews/ews.html'
-    log('Initializing...')
-    log('Opening: ' + Website,True,True)
-    kstr = DownloadHTMLtext(Website,log,Working_Dir)
-    global htmldata
-    with open(os.path.join(Working_Dir,'htmlparse.tmp'),'w') as htmldata:
-        parser = MyHTMLParser()
-        log('Superstring passed into parser function')
-        parser.feed(kstr)
-        pass
-    log('OnlyParse Function called')
-    log('MainGrab Function Finished')
-    OnlyParse(Working_Dir,log)
-    
-def OnlyParse(CurrentPath,log,**kwargs):
-    import time
-    Parameters = queryUser()
-    compactPrintout = kwargs.get('compact_print',False)
-    log('OnlyParse function is now running...')
-    global htmldata
-    global datastore
-    with open(os.path.join(CurrentPath,'htmlparse.tmp'),'r') as htmldata:
-        log('Data found!')
-        with open(os.path.join(CurrentPath,'ParseOutput.tmp'),'w') as datastore:
-            ParseDataFile(htmldata,datastore,log,CurrentPath)
-            pass
-        pass
-    with open(os.path.join(CurrentPath,'ParseOutput.tmp'),'r') as datastore:
-        events = inputintoobject(datastore,log)
-        log('Events Found')
-        pass
-    times = dateFinder('y',Parameters['days_out'],Parameters['minute_separation'])
-    log('Times Found',True,True)
-    log('Running through events and times')
-    log('events: ' + str(len(events)))
-    log('times: ' + str(len(times)))
-    timerr = len(times)
-    print('25% Complete')
-    dt = float((100-25)/timerr)
-    perc = 25
-    pold = 25
-    loop_pre_time = time.time()
-    for time_step in times:
-        perc = perc + dt
-        pnew = int(perc)
-        if pnew != pold:
-            print(str(pnew) + '% Complete')
-            pold = pnew
-        for event in events:
-            data = event.parse(Parameters['longitude'],Parameters['latitude'],time_step,Parameters['minimum_magnitude'],Parameters['minimum_altitude'],Parameters['only_active'],Parameters['only_future'])
-            if data[0]:
-                event.print2CSV(compactPrintout,CurrentPath,time_step,data[1],data[2])
-    log('Parser Finished! Total Loop Time: ' + str(round(time.time()-loop_pre_time,1)))
-    del log
-    print('-->>MicroParse Done<<--')
+
     
 def queryUser():
     default_QRY = clean_string(input('Do you want to use Default variables (Y/N)? '))
@@ -321,7 +454,7 @@ def queryUser():
     if default_QRY in ['n','no']:
         Parameters['longitude'] = float(clean_string(input('Observatory Longitude (def=-77.305325): ')))
         Parameters['latitude'] = float(clean_string(input('Observatory Latitude (def=38.828176): ')))
-        Parameters['days_out'] = int(clean_string(input('How many days from now do you want to parse to (def=30): ')))
+        Parameters['days_out'] = int(clean_string(input('How many days from now do you want to parse to (def=60): ')))
         perc_tmp = float(clean_string(input('How many times a night do you want to check (def=9): ')))
         Parameters['minute_separation'] = int((9*60)/perc_tmp)
         Parameters['minimum_altitude'] = float(clean_string(input('What is the lowest altitude you can observe at (in degrees) (def=20): ')))
@@ -337,7 +470,7 @@ def queryUser():
         else:
             Parameters['only_future'] = False
     else:
-        Parameters['minute_separation'] = int(270) #minutes, I would keep this between 30 - 280
+        Parameters['minute_separation'] = int(90) #minutes, I would keep this between 30 - 280
         Parameters['longitude'] = -77.305325 #degrees East
         Parameters['latitude'] = 38.828176 #degrees North
         Parameters['days_out'] = 60
@@ -347,89 +480,6 @@ def queryUser():
         Parameters['only_future'] = True #Only look at future maximums in the events
     return Parameters
 #######Back Ground Files#######
-
-def inputintoobject(data,log):
-    import pdb
-    log('inputintoobject func called.',True,True)
-    log('CSVfile made')
-    log('    --- PARSING INFORMATION ---')
-    lines=data.readlines()
-    events = []
-    for i, line in enumerate(lines):
-        if line == ' ----NEW EVENT----\n':
-            if lines[i+1] == '\n':
-                log.write('bad sector found, skipped: '+str(i)+'='+line)
-            else:
-                if lines[i+1]=='LIVE!----------------\n':
-                    active = True;
-                    skip = 1;
-                else:
-                    active = False;
-                    skip = 0;
-                url = lines[i+1+skip]
-                url = url[0:-1]
-                starno = lines[i+2+skip]
-                starno = starno[0:-1]
-                RA = lines[i+3+skip]
-                RA = RA[0:-1]
-                DEC = lines[i+4+skip]
-                DEC = DEC[0:-1]
-                tmaxhj = lines[i+5+skip]
-                tmaxhj = tmaxhj[0:-1]
-                tmaxut = lines[i+6+skip]
-                tmaxut = tmaxut[0:-1]
-                tau = lines[i+7+skip]
-                tau = tau[0:-1]
-                umin = lines[i+8+skip]
-                umin = umin[0:-1]
-                amax = lines[i+9+skip]
-                amax = amax[0:-1]
-                dmag = lines[i+10+skip]
-                dmag = dmag[0:-1]
-                fbl = lines[i+11+skip]
-                fbl = fbl[0:-1]
-                ibl = lines[i+12+skip]
-                ibl = ibl[0:-1]
-                io = lines[i+13+skip]
-                io = io[0:-1]
-                url = 'http://ogle.astrouw.edu.pl/ogle4/ews/'+url
-                events.append(microevent(active,url,starno,RA,DEC,tmaxhj,tmaxut,tau,umin,amax,dmag,fbl,ibl,io))
-    log('    --- PARSING END ---')
-    return events
-
-def ParseDataFile(htmldata,datastore,log,Path):
-    nextline = 0
-    nextlinego = 0
-    newitem = 0
-    newevents = 0
-    actives = 0
-    for line in htmldata:
-        if newitem == 1:
-            datastore.write('\n\n ----NEW EVENT----\n')
-            newevents += 1
-        elif nextline ==1:
-            strr = line[7:];
-            if not strr == '= RIGHT\n':
-                strr = strr[1:]
-                datastore.write(strr)
-        elif nextlinego == 1:
-            datastore.write('LIVE!----------------\n')
-            actives +=1
-
-        if line[0:9] == '::TAG: td':
-            nextline = 1;
-        elif line[0:8] == '::TAG: a':
-            nextline = 1;
-        elif line[0:10] == '::TAG: img':
-            nextlinego = 1;
-        elif line[0:9] == '::TAG: tr':
-            newitem = 1;
-        else:
-            nextline = 0;
-            nextlinego = 0;
-            newitem = 0;
-    log('    '+ str(newevents)+ ' New Event(s) Found!')
-    log('    ' + str(actives) + ' Active Event(s) Found!')
                 
 def DownloadHTMLtext(html,log,CurrentPath):
     import os
@@ -443,7 +493,7 @@ def DownloadHTMLtext(html,log,CurrentPath):
         pass
     log('HTML Data Saved Locally')
     with open(path,'r') as html1:
-        log.write('Reading ' + path + 'as var: html1')
+        log('Reading ' + path + 'as var: html1')
         kstr = ''
         for line in html1:
             kstr = kstr + line #Make large string of the html file
@@ -480,58 +530,6 @@ def UTC2str(UTC):
         sc = str(UTC.second)
     Full = m+d+y+'-'+hr+mn+sc
     return Full
-    
-def dateFinder(NowQ,days,precision):
-    #days - out from now
-    #precision in minutes
-    starthourUTC = '00:00'
-    endhourUTC = '09:00'
-    daysinmonths = {1:31,2:28,3:31,4:30,5:31,6:30,7:31,8:31,9:30,10:31,11:30,12:31}
-    #Note, code does not account for leap years at this stage.
-    if NowQ == 'y':
-        now = datetime.datetime.utcnow()
-        syear = now.year
-        smonth = now.month
-        sday = now.day
-        if now.hour >= 0 and now.hour <= 4:
-            if sday == 1:
-                if smonth == 1:
-                    syear = syear -1
-                    smonth = 12
-                else:
-                    smonth = smonth - 1
-                sday = daysinmonths[smonth]
-            else:
-                sday = sday - 1
-        shour = int(starthourUTC[0:2])
-        smin = int(starthourUTC[3:len(starthourUTC)])
-        ehour = int(endhourUTC[0:2])
-        emin = int(endhourUTC[3:len(endhourUTC)])
-        thour = shour
-        tmin = smin
-        tday = sday
-        tmonth = smonth
-        tyear = syear
-        UTCtimes = []
-        for i in range(1,days):
-            thour = shour
-            tmin = smin
-            if tday > daysinmonths[tmonth]:
-                tday = tday - daysinmonths[tmonth]
-                tmonth = tmonth + 1
-                if tmonth > 12:
-                    tmonth = 1
-                    tyear = tyear + 1
-            while thour < ehour or tmin < emin:
-                UTCtimes.append(datetime.datetime(tyear,tmonth,tday,thour,tmin))
-                tmin = tmin+precision
-                while tmin > 59:
-                    thour = thour + 1
-                    tmin = tmin - 60
-            tday = tday + 1
-    else:
-        print('Sorry, this feature is not yet implemented.') # TODO
-    return UTCtimes
     
 
 def datetime2String_Num(time,outputType):
@@ -720,6 +718,26 @@ def clean_string(string):
         return string
     else:
         raise ValueError
+
+def update_progress(progress):
+    import sys
+    barLength = 10 # Modify this to change the length of the progress bar
+    status = ""
+    if isinstance(progress, int):
+        progress = float(progress)
+    if not isinstance(progress, float):
+        progress = 0
+        status = "error: progress var must be float\r\n"
+    if progress < 0:
+        progress = 0
+        status = "Halt...\r\n"
+    if progress >= 1:
+        progress = 1
+        status = "Done...\r\n"
+    block = int(round(barLength*progress))
+    text = "\rPercent: [{0}] {1}% {2}".format( u"\u25A0"*block + "-"*(barLength-block), round(progress*100,1), status)
+    sys.stdout.write(text)
+    sys.stdout.flush()
 
 if __name__ == '__main__':
     print('Welcome to MicroParse version 1.x!')

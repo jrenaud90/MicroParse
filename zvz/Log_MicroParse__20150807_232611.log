@@ -1,0 +1,30 @@
+MicroParse_ log file. Created on 20150807_232611
+Exoplanet Micro Lens Parsing Log
+Version 1.0.5, by Joe Renaud. Last modified on: 7-24-15
+Initializing...
+TS23:26::11- Opening: http://ogle.astrouw.edu.pl/ogle4/ews/ews.html
+TS23:26::11- DownloadHTMLtext Function called
+HTML Data Downloaded
+HTML Data Saved Locally
+Reading C:\Documents\Documents\Scripts & Programs\MicroParse\MicroParseRun_20150807_232611\html.tmpas var: html1
+HTML data passed into super-string
+Superstring passed into parser function
+OnlyParse Function called
+MainGrab Function Finished
+OnlyParse function is now running...
+Data found!
+    1782 New Event(s) Found!
+    455 Active Event(s) Found!
+TS23:27::18- inputintoobject func called.
+CSVfile made
+    --- PARSING INFORMATION ---
+   Bad sector found, skipped: Line-29 =  ----NEW EVENT----
+
+    --- PARSING END ---
+Events Found
+TS23:27::18- Times Found
+Running through events and times
+events: 1781
+times: 740
+Parser Finished! Total Loop Time: 56.2
+-~-~->>> LOG CLOSING AT: 20150807_232814 <<<-~-~-
